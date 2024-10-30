@@ -14,7 +14,7 @@ class Log {
   constructor() {
     this.term = new Terminal()
     this.term.open(document.getElementById("terminal"))
-    this.term.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
+    // this.term.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
   }
 
   /**
@@ -24,7 +24,7 @@ class Log {
    */
   write(msg) {
     console.log(msg)
-    this.term.write(msg)
+    this.term.write(msg + "\n")
   }
 
   /**
@@ -35,7 +35,7 @@ class Log {
    */
   emit(module, msg) {
     const now = new Date()
-    const ts = `[${now.getFullYear()}-${now.getMonth()}-${now.getDate()} ${now.getHours()}:${now.getMinutes}:${now.getSeconds()}.${now.getMilliseconds()}]`
+    const ts = `[${now.getFullYear()}-${now.getMonth()}-${now.getDate()} ${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}.${now.getMilliseconds()}]`
     this.write(`${ts}  ${module.padEnd(8, " ")} ${msg}`)
   }
 }
@@ -43,4 +43,4 @@ class Log {
 const app = document.getElementById("app")
 const logger = new Log()
 
-logger.emit("Hi")
+logger.emit("sys", "Hi")
