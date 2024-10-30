@@ -24,6 +24,7 @@ class Log {
    */
   write(msg) {
     console.log(msg)
+    this.term.write(msg)
   }
 
   /**
