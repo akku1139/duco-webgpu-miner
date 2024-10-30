@@ -24,7 +24,7 @@ class Log {
    */
   write(msg) {
     console.log(msg)
-    this.term.write(msg + "\n")
+    this.term.write(msg + "\r\n")
   }
 
   /**
@@ -38,9 +38,19 @@ class Log {
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now.getMilliseconds().toString().padStart(3, "0")}]`
     this.write(`${ts}  ${module.padEnd(8, " ")} ${msg}`)
   }
+
+  /**
+   * Welcome message
+   * @param {string} mod
+   * @param {string} msg
+   */
+  welcome(mod, msg) {
+    this.write(` * ${mod.toUpperCase().padEnd(12, "")} ${msg}`)
+  }
 }
 
 const app = document.getElementById("app")
-const logger = new Log()
+const log = new Log()
 
-logger.emit("sys", "Hi")
+log.welcome("about", "Duino-Coin WebGPU Miner v0.0.0")
+log.emit("sys", "Hi")
