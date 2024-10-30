@@ -45,7 +45,7 @@ class Log {
    * @param {string} msg
    */
   welcome(mod, msg) {
-    this.write(` * ${mod.toUpperCase().padEnd(12, "")} ${msg}`)
+    this.write(` * ${mod.toUpperCase().padEnd(12, " ")} ${msg}`)
   }
 }
 
