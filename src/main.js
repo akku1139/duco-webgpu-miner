@@ -68,19 +68,35 @@ class Log {
   }
 }
 
+
+
 class PoolManager {
+  #httpURL
+  #useWS
+
   /**
    * Do not use it.
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
    */
   constructor({
-    useWS, ws
+    username, rigid, miningKey, useWS, ws
   }) {
-    this.useWS = useWS
+    this.username = username
+    this.rigid = rigid ?? ""
+    this.miningKey = miningKey ?? "None"
+    this.#useWS = useWS
+    this.ws = ws
+    this.baseDiff = "LOW"
+
+    // https://github.com/revoxhere/duco-webservices/blob/master/miniminer.html#L506
+    this.#httpURL = "http://51.15.127.80"
+    if(location.protocol === "https") {
+      this.#httpURL = "https://server.duinocoin.com"
+    }
   }
 
-  static async new(username, rigid, miningKey="None") {
+  static async new(username, rigid, miningKey) {
     let useWS = true
     if(typeof window.WebSocket === void 0) {
       useWS = false
@@ -109,8 +125,35 @@ class PoolManager {
       }  
     }
 
-    const self = new this(useWS, wsConn)
+    const self = new this(username, rigid, miningKey, useWS, wsConn)
     return self
+  }
+
+  /**
+   * 
+   * @param {string} method GET POST etc...
+   * @param {string} path /path/to/content
+   * @param {[key: string]: string} params HTTP Query Parameters
+   */
+  async #sendHTTP(method, path, params) {
+    const url = new URL(`${path}?${
+      new URLSearchParams(params).toString()
+    }`, this.#httpURL)
+    return await fetch(url, {
+      method
+    })
+  }
+
+  async getJob() {
+    if(this.#useWS) {
+
+    } else {
+      await this.#sendHTTP("get", "/legacy_job", {
+        u: this.username,
+        i: navigator.userAgent,
+        nocache: new Date.getTime()
+      })
+    }
   }
 }
 
