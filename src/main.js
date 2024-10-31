@@ -10,10 +10,11 @@
 class Log {
   /**
    * Init
+   * @param {string} id ID of Terminal Element
    */
-  constructor() {
+  constructor(id = "terminal") {
     this.term = new Terminal()
-    this.term.open(document.getElementById("terminal"))
+    this.term.open(document.getElementById(id))
     // this.term.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
   }
 
@@ -54,3 +55,8 @@ const log = new Log()
 
 log.welcome("about", "Duino-Coin WebGPU Miner v0.0.0")
 log.emit("sys", "Hi")
+
+const adapter = await navigator.gpu?.requestAdapter();
+const device = await adapter?.requestDevice();
+if (!device) {
+}
