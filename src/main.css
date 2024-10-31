@@ -11,3 +11,8 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+.xterm.terminal {
+  height: 100%;
+  padding: 0.5rem;
+}
