@@ -74,14 +74,43 @@ class PoolManager {
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
    */
-  constructor() {
-    
+  constructor({
+    useWS, ws
+  }) {
+    this.useWS = useWS
   }
 
-  static async new() {
+  static async new(username, rigid, miningKey="None") {
+    let useWS = true
     if(typeof window.WebSocket === void 0) {
+      useWS = false
       log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
+    } else {
+      let wsURL = "wss://magi.duinocoin.com:8443/"
+
+      // These servers are no longer active
+      // https://github.com/VatsaDev/Mineuino/blob/main/miner.js#L19
+      // if(location.protocol !== "https:") {
+      //   wsURL = "ws://51.15.127.80:14808"
+      // } else {
+      //   wsURL = "wss://server.duinocoin.com:15808"
+      // }
+
+      const ws = new WebSocket(wsURL)
+  
+      // https://github.com/XelyNetwork/SpaceUnicorn/blob/main/src/client.ts#L45
+      const isSuccess = await new Promise((resolve) => {
+        ws.onopen = () => resolve(true)
+        ws.onerror = () => resolve(false)
+      })
+
+      if(!isSuccess) {
+        useWS = false
+      }  
     }
+
+    const self = new this(useWS, wsConn)
+    return self
   }
 }
 
@@ -101,6 +130,8 @@ const main = async () => {
     log.emit("webgpu", "No device detected.")
     return
   }
+
+  const pool = await PoolManager.new()
 }
 
 main()
