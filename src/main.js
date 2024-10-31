@@ -183,12 +183,23 @@ const main = async () => {
   log.welcome("WebGPU", device.label)
   log.emit("sys", "Hi")
 
+  const params = new URL(location.href).searchParams
+  if(params.get("username") === null) {
+    log.emit("sys", "username is not set. login as `akku`")
+    log.emit("sys", "How to use: https://duco-webgpu.pages.dev/?username={DucoUserName}&miningkey={MiningKey}&rigid={RigID}")
+  }
+  const pool = await PoolManager.new(
+    params.get("username") ?? "akku",
+    params.get("miningkey") ?? "None",
+    params.get("rigid") ?? "Duino-Coin WebGPU Miner",
+  )
+
   if (!device) {
-    log.emit("webgpu", "No device detected.")
+    log.emit("webgpu", "No device detected. stopping...")
     return
   }
 
-  const pool = await PoolManager.new()
+  pool.getJob()
 }
 
 main()
