@@ -137,7 +137,7 @@ class PoolManager {
       }  
     }
 
-    const self = new this(username, rigid, miningKey, useWS, wsConn)
+    const self = new this(username, rigid, miningKey, useWS, ws)
     return self
   }
 
@@ -178,7 +178,7 @@ const main = async () => {
   const adapter = await navigator.gpu?.requestAdapter();
   const device = await adapter?.requestDevice();
 
-  log.welcome("WebGPU", device)
+  log.welcome("WebGPU", device.label)
   log.emit("sys", "Hi")
 
   if (!device) {
