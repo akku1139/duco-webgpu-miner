@@ -1,8 +1,9 @@
+//@ts-check
 /// <reference types="./webgpu-types.d.ts" />
 "use strict"
 
 const color = {
-  
+
 }
 
 /**
@@ -24,7 +25,7 @@ class Log {
   }
 
   /**
-   * 
+   *
    * @param  {Array<string | Array<string, string>} msg
    * @returns {Array<string>}
    */
@@ -86,12 +87,12 @@ class PoolManager {
    * Do not use it.
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
-   * 
+   *
    * @param {string} username
    * @param {string} rigid
    * @param {string} miningKey
    * @param {boolean} useWS
-   * @param {WebSocket} ws 
+   * @param {WebSocket} ws
    */
   constructor(username, rigid, miningKey, useWS, ws) {
     this.username = username
@@ -137,7 +138,7 @@ class PoolManager {
       // }
 
       ws = new WebSocket(wsURL)
-  
+
       // https://github.com/XelyNetwork/SpaceUnicorn/blob/main/src/client.ts#L45
       const isSuccess = await new Promise((resolve) => {
         ws.onopen = () => resolve(true)
@@ -146,7 +147,7 @@ class PoolManager {
 
       if(!isSuccess) {
         useWS = false
-      }  
+      }
     }
 
     const self = new this(username, rigid, miningKey, useWS, ws)
@@ -154,7 +155,7 @@ class PoolManager {
   }
 
   /**
-   * 
+   *
    * @param {string} method GET POST etc...
    * @param {string} path /path/to/content
    * @param {[key: string]: string} params HTTP Query Parameters
@@ -189,7 +190,7 @@ class PoolManager {
         last: job[0],
         target: job[1],
         diff: job[2],
-      }  
+      }
     }
   }
 
