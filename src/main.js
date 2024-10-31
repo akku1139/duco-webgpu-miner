@@ -110,8 +110,10 @@ class PoolManager {
 
   static async new(username, rigid, miningKey) {
     let useWS = true
+    let ws
     if(typeof window.WebSocket === void 0) {
       useWS = false
+      ws = void 0
       log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
     } else {
       let wsURL = "wss://magi.duinocoin.com:8443/"
@@ -124,7 +126,7 @@ class PoolManager {
       //   wsURL = "wss://server.duinocoin.com:15808"
       // }
 
-      const ws = new WebSocket(wsURL)
+      ws = new WebSocket(wsURL)
   
       // https://github.com/XelyNetwork/SpaceUnicorn/blob/main/src/client.ts#L45
       const isSuccess = await new Promise((resolve) => {
