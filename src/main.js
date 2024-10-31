@@ -80,6 +80,8 @@ class PoolManager {
   #baseDiff
   #miningKey
 
+  #minerName = "Duino-Coin WebGPU Miner 0.0"
+
   /**
    * Do not use it.
    * never `new PoolManager()`
@@ -99,6 +101,12 @@ class PoolManager {
     this.#ws = ws
     this.#baseDiff = "LOW"
 
+    this.job = {
+      last: "",
+      target: "",
+      diff: 0,
+    }
+
     // https://github.com/revoxhere/duco-webservices/blob/master/miniminer.html#L506
     this.#httpURL = "http://51.15.127.80"
     if(location.protocol === "https") {
@@ -108,10 +116,12 @@ class PoolManager {
     log.emit("net", `login as ${username}`)
   }
 
-  static async new(username, rigid, miningKey) {
+  static async new(username, rigid, miningKey, noWS) {
     let useWS = true
     let ws
-    if(typeof window.WebSocket === void 0) {
+    if(noWS) {
+      useWS = false
+    } else if(typeof window.WebSocket === void 0) {
       useWS = false
       ws = void 0
       log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
@@ -158,16 +168,33 @@ class PoolManager {
     })
   }
 
+  /**
+   * @returns {{
+   *  last: string
+   *  target: string
+   *  diff: number
+   * }}
+   */
   async getJob() {
     if(this.#useWS) {
       this.#ws.send(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {
-      await this.#sendHTTP("get", "/legacy_job", {
+      const ret = await (await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
         i: navigator.userAgent,
         nocache: new Date.getTime()
-      })
+      })).text()
+      const job = ret.split(",")
+      return {
+        last: job[0],
+        target: job[1],
+        diff: job[2],
+      }  
     }
+  }
+
+  async sendShare(nonce) {
+
   }
 }
 
@@ -192,6 +219,7 @@ const main = async () => {
     params.get("username") ?? "akku",
     params.get("miningkey") ?? "None",
     params.get("rigid") ?? "Duino-Coin WebGPU Miner",
+    Boolean(params.get("nows") ?? false)
   )
 
   if (!device) {
