@@ -68,6 +68,23 @@ class Log {
   }
 }
 
+class PoolManager {
+  /**
+   * Do not use it.
+   * never `new PoolManager()`
+   * use `await PoolManager.new()` insted
+   */
+  constructor() {
+    
+  }
+
+  static async new() {
+    if(typeof window.WebSocket === void 0) {
+      log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
+    }
+  }
+}
+
 const app = document.getElementById("app")
 const log = new Log()
 
@@ -83,7 +100,7 @@ const main = async () => {
   if (!device) {
     log.emit("webgpu", "No device detected.")
     return
-  } 
+  }
 }
 
 main()
