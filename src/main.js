@@ -67,34 +67,45 @@ class Log {
   welcome(mod, msg) {
     this.write(` * ${mod.toUpperCase().padEnd(12, " ")} ${msg}`)
   }
+
+  debug(...msg) {
+    this.emit("debug", msg)
+  }
 }
-
-
 
 class PoolManager {
   #httpURL
   #useWS
+  #ws
+  #baseDiff
+  #miningKey
 
   /**
    * Do not use it.
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
+   * 
+   * @param {string} username
+   * @param {string} rigid
+   * @param {string} miningKey
+   * @param {boolean} useWS
+   * @param {WebSocket} ws 
    */
-  constructor({
-    username, rigid, miningKey, useWS, ws
-  }) {
+  constructor(username, rigid, miningKey, useWS, ws) {
     this.username = username
     this.rigid = rigid ?? ""
-    this.miningKey = miningKey ?? "None"
+    this.#miningKey = miningKey ?? "None"
     this.#useWS = useWS
-    this.ws = ws
-    this.baseDiff = "LOW"
+    this.#ws = ws
+    this.#baseDiff = "LOW"
 
     // https://github.com/revoxhere/duco-webservices/blob/master/miniminer.html#L506
     this.#httpURL = "http://51.15.127.80"
     if(location.protocol === "https") {
       this.#httpURL = "https://server.duinocoin.com"
     }
+
+    log.emit("net", `login as ${username}`)
   }
 
   static async new(username, rigid, miningKey) {
@@ -147,7 +158,7 @@ class PoolManager {
 
   async getJob() {
     if(this.#useWS) {
-
+      this.#ws.send(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {
       await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
