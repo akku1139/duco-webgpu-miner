@@ -1,3 +1,4 @@
+/// <reference types="./webgpu-types.d.ts" />
 "use strict"
 
 const color = {

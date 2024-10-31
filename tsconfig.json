@@ -1,6 +1,15 @@
 {
   "compilerOptions": {
-    "target": "ESNext"
-    // "lib": []
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "WebWorker"
+    ],
+    // "typeRoots": [
+    //   "./src/webgpu-types.d.ts"
+    // ],
+    "noEmit": true
   }
 }
