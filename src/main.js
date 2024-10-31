@@ -1,5 +1,9 @@
 "use strict"
 
+const color = {
+  
+}
+
 /**
  * XMRig like very cool log util
  * [2024-10-30 23:28:01.268]  net      new job from jp.moneroocean.stream:20004 diff 53371 algo rx/0 height 3270473 (5 tx)
@@ -19,6 +23,20 @@ class Log {
   }
 
   /**
+   * 
+   * @param  {Array<string | Array<string, string>} msg
+   * @returns {Array<string>}
+   */
+  #unescape(...msg) {
+    return msg.map(m => {
+      if(Array.isArray(m)) {
+        return m[0]
+      }
+      return m
+    })
+  }
+
+  /**
    * Write directly to log buffers
    * @param {string} msg Message
    * @returns {void}
@@ -31,10 +49,10 @@ class Log {
   /**
    * Emit log
    * @param {string} module
-   * @param {string} msg Message
+   * @param {string | Array<Array<string, string>>} msg Message
    * @returns {void}
    */
-  emit(module, msg) {
+  emit(module, ...msg) {
     const now = new Date()
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now.getMilliseconds().toString().padStart(3, "0")}]`
     this.write(`${ts}  ${module.padEnd(8, " ")} ${msg}`)
@@ -53,10 +71,19 @@ class Log {
 const app = document.getElementById("app")
 const log = new Log()
 
-log.welcome("about", "Duino-Coin WebGPU Miner v0.0.0")
-log.emit("sys", "Hi")
+const main = async () => {
+  log.welcome("about", "Duino-Coin WebGPU Miner v0.0.0")
 
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
-if (!device) {
+  const adapter = await navigator.gpu?.requestAdapter();
+  const device = await adapter?.requestDevice();
+
+  log.welcome("WebGPU", device)
+  log.emit("sys", "Hi")
+
+  if (!device) {
+    log.emit("webgpu", "No device detected.")
+    return
+  } 
 }
+
+main()
