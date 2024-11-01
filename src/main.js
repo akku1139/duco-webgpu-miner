@@ -4,6 +4,17 @@
 
 "use strict"
 
+const utils = {
+  /**
+   * @param {number} value
+   * @param {number} base 10, 0.1 ...
+   * @returns {number}
+   */
+  round(value, base) {
+    return Math.round(value * base) / base
+  }
+}
+
 /**
  * XMRig like very cool log util
  * [2024-10-30 23:28:01.268]  net      new job from jp.moneroocean.stream:20004 diff 53371 algo rx/0 height 3270473 (5 tx)
@@ -285,32 +296,30 @@ class PoolManager {
 
     // result(nonce),hashrate,miner name,identifier(rig name),DUCOID,thread id(random?)
 
-    const hashrate = nonce / (new Date().getTime() - this.#startTime) / 1000
+    const timeDiff = new Date().getTime() - this.#startTime
+    const hashrate = nonce / timeDiff / 1000
 
-    let res
+    let feedback
     if(this.#useWS) {
-      res = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
+      feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
     } else {
       const now = new Date()
-      res = await (await this.#sendHTTP("get", "/legacy_job", {
+      feedback = await (await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
+        r: nonce.toString(),
+        k: this.#miningKey,
+        s: this.#minerName,
+        j: this.job.target,
+        i: navigator.userAgent,
+        h: hashrate.toString(),
+        b: utils.round(timeDiff, 0.1).toString(),
         nocache: now.getTime().toString(),
-        /*
-          "/legacy_job?u=" + username +
-            "&r=" + result +
-            "&k=" + key +
-            "&s=Official Mini Miner 3.2" +
-            "&j=" + expected_hash +
-            "&i=" + navigator.userAgent +
-            "&h=" + hashrate +
-            "&b=" + sharetime +
-            "&nocache=" + new Date().getTime());
-        */
       })).text()
     }
-
-    const feedback = res.split(",")
-    return
+    return {
+      feedback: feedback === "GOOD",
+      hashrate,
+    }
   }
 }
 
