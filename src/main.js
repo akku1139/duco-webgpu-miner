@@ -1,5 +1,7 @@
 //@ts-check
 /// <reference types="./webgpu-types.d.ts" />
+/// <reference types="./types.d.ts" />
+
 "use strict"
 
 const color = {
