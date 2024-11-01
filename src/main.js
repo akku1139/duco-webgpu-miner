@@ -57,8 +57,8 @@ const text = new class {
    * @param {keyof typeof text.fg} fg
    * @param {keyof typeof text.bg | undefined} bg
    */
-  color(text, fg, bg=void 0) {
-    return this.fg[fg] + bg === void 0 ? "" : this.bg[bg] + text + this.reset
+  color(text, fg, bg="none") {
+    return this.fg[fg] + this.bg[bg] + text + this.reset
   }
 }()
 
