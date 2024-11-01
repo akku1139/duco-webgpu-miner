@@ -219,7 +219,11 @@ class PoolManager {
     if(this.#useWS) {
       res = await this.#waitWS(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {
+      const now = new Date()
       res = await (await this.#sendHTTP("get", "/legacy_job", {
+        u: this.username,
+        i: navigator.userAgent,
+        nocache: now.getTime().toString()
       })).text()
     }
 
@@ -290,8 +294,18 @@ class PoolManager {
       const now = new Date()
       res = await (await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
-        i: navigator.userAgent,
-        nocache: now.getTime().toString()
+        nocache: now.getTime().toString(),
+        /*
+          "/legacy_job?u=" + username +
+            "&r=" + result +
+            "&k=" + key +
+            "&s=Official Mini Miner 3.2" +
+            "&j=" + expected_hash +
+            "&i=" + navigator.userAgent +
+            "&h=" + hashrate +
+            "&b=" + sharetime +
+            "&nocache=" + new Date().getTime());
+        */
       })).text()
     }
 
