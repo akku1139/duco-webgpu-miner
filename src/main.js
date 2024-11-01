@@ -194,6 +194,7 @@ class PoolManager {
     // Format
     // UserName,StartDiff,MinerKey,DucoIoT
     // https://github.com/revoxhere/duino-coin/blob/master/ESP_Code/MiningJob.h#L356C1-L362C1
+    // https://github.com/revoxhere/duino-coin/wiki/Duino%27s-take-on-the-Internet-of-Things
     /*
                 client.print("JOB," +
                          String(config->DUCO_USER) +
@@ -260,7 +261,10 @@ class PoolManager {
                      END_TOKEN);
     */
 
-    // result(nonce),hashrate,miner name,identifier(rig name),unknown,thread id(random?)
+    // https://github.com/revoxhere/duino-coin/blob/master/AVR_Miner.py#L1202
+    // https://github.com/revoxhere/duino-coin/blob/master/Arduino_Code/Arduino_Code.ino#L160
+
+    // result(nonce),hashrate,miner name,identifier(rig name),DUCOID,thread id(random?)
   }
 }
 
