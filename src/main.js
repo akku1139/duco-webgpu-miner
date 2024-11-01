@@ -22,10 +22,14 @@ const text = new class {
 
   reset = "\x1b[0m"
 
-  bold  = "\x1b[1m"
-  faint = "\x1b[2m"
+  style = {
+    none:   "",
+    bold:   "\x1b[1m",
+    faint:  "\x1b[2m",
+  }
 
   fg = {
+    none:     "",
     black:    "\x1b[30m",
     red:      "\x1b[31m",
     green:    "\x1b[32m",
@@ -37,6 +41,7 @@ const text = new class {
   }
 
   bg = {
+    none:     "",
     black:    "\x1b[40m",
     red:      "\x1b[41m",
     green:    "\x1b[42m",
@@ -65,11 +70,14 @@ const text = new class {
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
 class Log {
+  /**
+   * @type {{[key: string]: [keyof typeof text.fg, keyof typeof text.bg]}}
+   */
   mod = {
-    debug: "debug",
-    net: text.color("net", "white", "blue"),
-    sys: text.color("sys", "white", "yellow"),
-    gpu: text.color("gpu", "white", "magenta"),
+    debug:  ["none", "none"],
+    net:    ["white", "blue"],
+    sys:    ["white", "yellow"],
+    gpu:    ["white", "magenta"],
   }
 
   /**
@@ -100,8 +108,9 @@ class Log {
    */
   emit(module, msg) {
     const now = new Date()
-    const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now.getMilliseconds().toString().padStart(3, "0")}]`
-    this.write(`${ts}  ${this.mod[module].padEnd(8, " ")} ${msg}`)
+    const modData = this.mod[module]
+    const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
+    this.write(`${ts}  ${text.color(" "+module.padEnd(8, " "), modData[0], modData[1])} ${msg}`)
   }
 
   /**
