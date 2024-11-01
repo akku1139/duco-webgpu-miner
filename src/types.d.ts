@@ -1,4 +1,4 @@
 declare class Terminal {
-  open(element: HTMLElement)
+  open(element: HTMLElement | null)
   write(smessage: string)
 }

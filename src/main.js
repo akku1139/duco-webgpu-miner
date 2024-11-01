@@ -4,10 +4,6 @@
 
 "use strict"
 
-const color = {
-
-}
-
 /**
  * XMRig like very cool log util
  * [2024-10-30 23:28:01.268]  net      new job from jp.moneroocean.stream:20004 diff 53371 algo rx/0 height 3270473 (5 tx)
@@ -27,20 +23,6 @@ class Log {
   }
 
   /**
-   *
-   * @param  {Array<string | Array<string, string>} msg
-   * @returns {Array<string>}
-   */
-  #unescape(...msg) {
-    return msg.map(m => {
-      if(Array.isArray(m)) {
-        return m[0]
-      }
-      return m
-    })
-  }
-
-  /**
    * Write directly to log buffers
    * @param {string} msg Message
    * @returns {void}
@@ -53,7 +35,7 @@ class Log {
   /**
    * Emit log
    * @param {string} module
-   * @param {string | Array<Array<string, string>>} msg Message
+   * @param {Array<string>} msg Message
    * @returns {void}
    */
   emit(module, ...msg) {
