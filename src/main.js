@@ -73,11 +73,6 @@ class PoolManager {
   #baseDiff
   #miningKey
 
-  /**
-   * @type {"none" | "job" | "result"}
-   */
-  #wsState = "none"
-
   #minerName = "Duino-Coin WebGPU Miner 0.0"
 
   /**
@@ -122,6 +117,7 @@ class PoolManager {
     let ws
     if(noWS) {
       useWS = false
+      ws = void 0
     } else if(typeof window.WebSocket === void 0) {
       useWS = false
       ws = void 0
@@ -147,15 +143,24 @@ class PoolManager {
 
       if(!isSuccess) {
         useWS = false
-      } else {
-        ws.onmessage = (e) => {
-          console.log(e)
-        }
       }
     }
 
     const self = new this(username, rigid, miningKey, useWS, ws)
     return self
+  }
+
+  /**
+   * @param {string} msg
+   * @returns {Promise<string>}
+   */
+  async #waitWS(msg) {
+    return new Promise((resolve) => {
+      this.#ws.send(msg);
+      this.#ws.onmessage = (event) => {
+        resolve(event.data)
+      }
+    })
   }
 
   /**
@@ -177,22 +182,22 @@ class PoolManager {
    * @returns {Promise<Job>}
    */
   async getJob() {
+    let res
     if(this.#useWS) {
-      this.#ws.send(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
-      return {}
+      res = await this.#waitWS(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {
       const now = new Date()
-      const ret = await (await this.#sendHTTP("get", "/legacy_job", {
+      res = await (await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
         i: navigator.userAgent,
         nocache: now.getTime() + now.getMilliseconds()
       })).text()
-      const job = ret.split(",")
-      return {
-        last: job[0],
-        target: job[1],
-        diff: Number(job[2]),
-      }
+    }
+    const job = res.split(",")
+    return {
+      last: job[0],
+      target: job[1],
+      diff: Number(job[2]),
     }
   }
 
