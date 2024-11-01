@@ -15,6 +15,48 @@ const utils = {
   }
 }
 
+const text = new class {
+  // https://qiita.com/PruneMazui/items/8a023347772620025ad6
+  // https://gist.github.com/inexorabletash/9122583
+  // noReset option?
+
+  reset = "\e[0m"
+
+  bold  = "\e[1m"
+  faint = "\e[2m"
+
+  fg = {
+    black:    "\e[30m",
+    red:      "\e[31m",
+    green:    "\e[32m",
+    yellow:   "\e[33m",
+    blue:     "\e[34m",
+    magenta:  "\e[35m",
+    syan:     "\e[36m",
+    white:    "\e[37m",
+  }
+
+  bg = {
+    black:    "\e[40m",
+    red:      "\e[41m",
+    green:    "\e[42m",
+    yellow:   "\e[43m",
+    blue:     "\e[44m",
+    magenta:  "\e[45m",
+    syan:     "\e[46m",
+    white:    "\e[47m",
+  }
+
+  /**
+   * @param {string} text
+   * @param {keyof typeof text.fg} fg
+   * @param {keyof typeof text.bg | undefined} bg
+   */
+  color(text, fg, bg=void 0) {
+    return this.fg[fg] + bg === void 0 ? "" : this.bg[bg] + text + this.reset
+  }
+}()
+
 /**
  * XMRig like very cool log util
  * [2024-10-30 23:28:01.268]  net      new job from jp.moneroocean.stream:20004 diff 53371 algo rx/0 height 3270473 (5 tx)
@@ -23,6 +65,13 @@ const utils = {
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
 class Log {
+  mod = {
+    debug: "debug",
+    net: text.color("net", "white", "blue"),
+    sys: text.color("sys", "white", "yellow"),
+    gpu: text.color("gpu", "white", "magenta"),
+  }
+
   /**
    * Init
    * @param {string} id ID of Terminal Element
@@ -45,14 +94,14 @@ class Log {
 
   /**
    * Emit log
-   * @param {string} module
+   * @param {keyof typeof this.mod} module
    * @param {string} msg Message
    * @returns {void}
    */
   emit(module, msg) {
     const now = new Date()
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now.getMilliseconds().toString().padStart(3, "0")}]`
-    this.write(`${ts}  ${module.padEnd(8, " ")} ${msg}`)
+    this.write(`${ts}  ${this.mod[module].padEnd(8, " ")} ${msg}`)
   }
 
   /**
