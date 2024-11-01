@@ -112,7 +112,7 @@ class PoolManager {
 
     // https://github.com/revoxhere/duco-webservices/blob/master/miniminer.html#L506
     this.#httpURL = "http://51.15.127.80"
-    if(location.protocol === "https") {
+    if(location.protocol === "https:") {
       this.#httpURL = "https://server.duinocoin.com"
     }
 
