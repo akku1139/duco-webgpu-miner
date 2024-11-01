@@ -207,13 +207,18 @@ const log = new Log()
 const main = async () => {
   log.welcome("about", "Duino-Coin WebGPU Miner v0.0.0")
 
-  const adapter = await navigator.gpu?.requestAdapter();
-  const device = await adapter?.requestDevice();
+  const adapter = await navigator.gpu?.requestAdapter()
+  const gpuInfo = adapter?.requestAdapterInfo()
+
+  const device = await adapter?.requestDevice()
 
   log.welcome("WebGPU", device?.label ?? "No device found")
-  log.debug(JSON.stringify(
-    await adapter?.requestAdapterInfo()
-  ))
+  log.debug(JSON.stringify({
+    architecture: gpuInfo.architecture,
+    description: gpuInfo.description,
+    device: gpuInfo.device,
+    vendor:gpuInfo.vendor,
+  }))
   log.emit("sys", "Hi")
 
   const params = new URL(location.href).searchParams
