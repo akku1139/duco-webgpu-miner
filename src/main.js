@@ -210,7 +210,10 @@ const main = async () => {
   const adapter = await navigator.gpu?.requestAdapter();
   const device = await adapter?.requestDevice();
 
-  log.welcome("WebGPU", device.label)
+  log.welcome("WebGPU", device?.label ?? "No device found")
+  log.debug(JSON.stringify(
+    await adapter?.requestAdapterInfo()
+  ))
   log.emit("sys", "Hi")
 
   const params = new URL(location.href).searchParams
