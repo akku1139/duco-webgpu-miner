@@ -20,10 +20,10 @@ const text = new class {
   // https://gist.github.com/inexorabletash/9122583
   // noReset option?
 
-  reset = "\e[0m"
+  reset = "\x1b[0m"
 
-  bold  = "\e[1m"
-  faint = "\e[2m"
+  bold  = "\x1b[1m"
+  faint = "\x1b[2m"
 
   fg = {
     black:    "\x1b[30m",
