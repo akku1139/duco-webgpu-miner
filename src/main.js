@@ -189,6 +189,17 @@ class PoolManager {
    * @returns {Promise<Job>}
    */
   async getJob() {
+    // Format
+    // UserName,StartDiff,MinerKey,DucoIoT
+    // https://github.com/revoxhere/duino-coin/blob/master/ESP_Code/MiningJob.h#L356C1-L362C1
+    /*
+                client.print("JOB," +
+                         String(config->DUCO_USER) +
+                         SEP_TOKEN + config->START_DIFF +
+                         SEP_TOKEN + String(config->MINER_KEY) +
+                         SEP_TOKEN + "Temp:" + String(temp) + "*C" +
+                         END_TOKEN);
+    */
     let res
     if(this.#useWS) {
       res = await this.#waitWS(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
@@ -235,6 +246,17 @@ class PoolManager {
     // https://github.com/revoxhere/duino-coin/blob/master/Unofficial%20miners/Multithreaded_PC_Miner.py#L106
     // https://github.com/revoxhere/duino-coin/blob/master/AVR_Miner.py#L1194
     // https://github.com/revoxhere/duino-coin/blob/master/PC_Miner.py#L1187
+
+    /* https://github.com/revoxhere/duino-coin/blob/master/ESP_Code/MiningJob.h#L288
+            client.print(String(counter) +
+                     SEP_TOKEN + String(hashrate) +
+                     SEP_TOKEN + MINER_BANNER +
+                     SPC_TOKEN + config->MINER_VER +
+                     SEP_TOKEN + config->RIG_IDENTIFIER +
+                     SEP_TOKEN + "DUCOID" + String(chipID) +
+                     SEP_TOKEN + String(WALLET_ID) +
+                     END_TOKEN);
+    */
 
     // result(nonce),hashrate,miner name,identifier(rig name),unknown,thread id(random?)
   }
