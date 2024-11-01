@@ -73,6 +73,16 @@ class PoolManager {
   #baseDiff
   #miningKey
 
+  /**
+   * @type {number}
+   */
+  #startTime
+
+  /**
+   * @type {number}
+   */
+  #threadID
+
   #minerName = "Duino-Coin WebGPU Miner 0.0"
 
   /**
@@ -93,6 +103,8 @@ class PoolManager {
     this.#useWS = useWS
     this.#ws = ws
     this.#baseDiff = "LOW"
+
+    this.#threadID = Math.floor(Math.random()*10000)
 
     this.job = {
       last: "",
@@ -207,13 +219,12 @@ class PoolManager {
     if(this.#useWS) {
       res = await this.#waitWS(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {
-      const now = new Date()
       res = await (await this.#sendHTTP("get", "/legacy_job", {
-        u: this.username,
-        i: navigator.userAgent,
-        nocache: `${now.getTime()}${now.getMilliseconds()}`
       })).text()
     }
+
+    this.#startTime = new Date().getTime()
+
     const job = res.split(",")
     return {
       last: job[0],
@@ -222,6 +233,10 @@ class PoolManager {
     }
   }
 
+  /**
+   *
+   * @param {number} nonce
+   */
   async sendShare(nonce) {
     // WebMiner
     // 1886458,178457.65,Official Web Miner 3.4,None,,2363
@@ -265,6 +280,23 @@ class PoolManager {
     // https://github.com/revoxhere/duino-coin/blob/master/Arduino_Code/Arduino_Code.ino#L160
 
     // result(nonce),hashrate,miner name,identifier(rig name),DUCOID,thread id(random?)
+
+    const hashrate = nonce / (new Date().getTime() - this.#startTime) / 1000
+
+    let res
+    if(this.#useWS) {
+      res = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
+    } else {
+      const now = new Date()
+      res = await (await this.#sendHTTP("get", "/legacy_job", {
+        u: this.username,
+        i: navigator.userAgent,
+        nocache: now.getTime().toString()
+      })).text()
+    }
+
+    const feedback = res.split(",")
+    return
   }
 }
 
