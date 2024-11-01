@@ -3,7 +3,7 @@ body {
   min-height: 100vh;
 }
 
-#terminal {
+/* #terminal {
   border: none;
   position: absolute;
   top: 0;
@@ -15,4 +15,4 @@ body {
 .xterm.terminal {
   height: 100%;
   padding: 0.5rem;
-}
+} */
