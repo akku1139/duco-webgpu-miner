@@ -35,10 +35,10 @@ class Log {
   /**
    * Emit log
    * @param {string} module
-   * @param {Array<string>} msg Message
+   * @param {string} msg Message
    * @returns {void}
    */
-  emit(module, ...msg) {
+  emit(module, msg) {
     const now = new Date()
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${now.getMilliseconds().toString().padStart(3, "0")}]`
     this.write(`${ts}  ${module.padEnd(8, " ")} ${msg}`)
@@ -53,7 +53,7 @@ class Log {
     this.write(` * ${mod.toUpperCase().padEnd(12, " ")} ${msg}`)
   }
 
-  debug(...msg) {
+  debug(msg) {
     this.emit("debug", msg)
   }
 }
@@ -117,9 +117,11 @@ class PoolManager {
     let ws
     if(noWS) {
       useWS = false
+      //@ts-ignore
       ws = void 0
     } else if(typeof window.WebSocket === void 0) {
       useWS = false
+      //@ts-ignore
       ws = void 0
       log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
     } else {
@@ -174,7 +176,7 @@ class PoolManager {
    *
    * @param {string} method GET POST etc...
    * @param {string} path /path/to/content
-   * @param {[key: string]: string} params HTTP Query Parameters
+   * @param {{[key: string]: string}} params HTTP Query Parameters
    */
   async #sendHTTP(method, path, params) {
     const url = new URL(`${path}?${
@@ -208,7 +210,7 @@ class PoolManager {
       res = await (await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
         i: navigator.userAgent,
-        nocache: now.getTime() + now.getMilliseconds()
+        nocache: `${now.getTime()}${now.getMilliseconds()}`
       })).text()
     }
     const job = res.split(",")
