@@ -236,7 +236,7 @@ const main = async () => {
     return
   }
 
-  pool.getJob()
+  log.emit("net", JSON.stringify(pool.getJob()))
 }
 
 main()
