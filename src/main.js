@@ -209,11 +209,11 @@ class PoolManager {
     // https://github.com/revoxhere/duino-coin/wiki/Duino%27s-take-on-the-Internet-of-Things
     /*
                 client.print("JOB," +
-                         String(config->DUCO_USER) +
-                         SEP_TOKEN + config->START_DIFF +
-                         SEP_TOKEN + String(config->MINER_KEY) +
-                         SEP_TOKEN + "Temp:" + String(temp) + "*C" +
-                         END_TOKEN);
+                        String(config->DUCO_USER) +
+                        SEP_TOKEN + config->START_DIFF +
+                        SEP_TOKEN + String(config->MINER_KEY) +
+                        SEP_TOKEN + "Temp:" + String(temp) + "*C" +
+                        END_TOKEN);
     */
     let res
     if(this.#useWS) {
@@ -271,13 +271,13 @@ class PoolManager {
 
     /* https://github.com/revoxhere/duino-coin/blob/master/ESP_Code/MiningJob.h#L288
             client.print(String(counter) +
-                     SEP_TOKEN + String(hashrate) +
-                     SEP_TOKEN + MINER_BANNER +
-                     SPC_TOKEN + config->MINER_VER +
-                     SEP_TOKEN + config->RIG_IDENTIFIER +
-                     SEP_TOKEN + "DUCOID" + String(chipID) +
-                     SEP_TOKEN + String(WALLET_ID) +
-                     END_TOKEN);
+                    SEP_TOKEN + String(hashrate) +
+                    SEP_TOKEN + MINER_BANNER +
+                    SPC_TOKEN + config->MINER_VER +
+                    SEP_TOKEN + config->RIG_IDENTIFIER +
+                    SEP_TOKEN + "DUCOID" + String(chipID) +
+                    SEP_TOKEN + String(WALLET_ID) +
+                    END_TOKEN);
     */
 
     // https://github.com/revoxhere/duino-coin/blob/master/AVR_Miner.py#L1202
