@@ -231,7 +231,12 @@ class PoolManager {
             rejected++;
         }
     */
+    // https://github.com/revoxhere/duino-coin/blob/master/Unofficial%20miners/Minimal_PC_Miner.py#L100
+    // https://github.com/revoxhere/duino-coin/blob/master/Unofficial%20miners/Multithreaded_PC_Miner.py#L106
+    // https://github.com/revoxhere/duino-coin/blob/master/AVR_Miner.py#L1194
+    // https://github.com/revoxhere/duino-coin/blob/master/PC_Miner.py#L1187
 
+    // result(nonce),hashrate,miner name,identifier(rig name),unknown,thread id(random?)
   }
 }
 
