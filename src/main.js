@@ -19,7 +19,7 @@ class Log {
   constructor(id = "terminal") {
     this.term = new Terminal()
     this.term.open(document.getElementById(id))
-    // this.term.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
+    this.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
   }
 
   /**
