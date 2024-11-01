@@ -94,7 +94,7 @@ class Log {
     this.term.open(termElm)
     fitAddon.fit()
 
-    termElm?.addEventListener("resize", () => {
+    window.addEventListener("resize", () => {
       fitAddon.fit()
     })
 
