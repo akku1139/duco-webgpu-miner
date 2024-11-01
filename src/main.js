@@ -58,12 +58,25 @@ class Log {
   }
 }
 
+/**
+ * @typedef {{
+ *  last: string
+ *  target: string
+ *  diff: number
+ * }} Job
+ */
+
 class PoolManager {
   #httpURL
   #useWS
   #ws
   #baseDiff
   #miningKey
+
+  /**
+   * @type {"none" | "job" | "result"}
+   */
+  #wsState = "none"
 
   #minerName = "Duino-Coin WebGPU Miner 0.0"
 
@@ -103,6 +116,9 @@ class PoolManager {
 
   static async new(username, rigid, miningKey, noWS) {
     let useWS = true
+    /**
+     * @type {WebSocket}
+     */
     let ws
     if(noWS) {
       useWS = false
@@ -131,6 +147,10 @@ class PoolManager {
 
       if(!isSuccess) {
         useWS = false
+      } else {
+        ws.onmessage = (e) => {
+          console.log(e)
+        }
       }
     }
 
@@ -154,15 +174,12 @@ class PoolManager {
   }
 
   /**
-   * @returns {{
-   *  last: string
-   *  target: string
-   *  diff: number
-   * }}
+   * @returns {Promise<Job>}
    */
   async getJob() {
     if(this.#useWS) {
       this.#ws.send(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
+      return {}
     } else {
       const now = new Date()
       const ret = await (await this.#sendHTTP("get", "/legacy_job", {
@@ -218,7 +235,7 @@ const main = async () => {
     return
   }
 
-  log.emit("net", JSON.stringify(pool.getJob()))
+  log.emit("net", JSON.stringify(await pool.getJob()))
 }
 
 main()
