@@ -71,7 +71,7 @@ const text = new class {
  */
 class Log {
   /**
-   * @type {{[key: string]: [keyof typeof text.fg, keyof typeof text.bg]}}
+   * @type {{[key in string]: [keyof typeof text.fg, keyof typeof text.bg]}}
    */
   mod = {
     debug:  ["none", "none"],
@@ -85,8 +85,19 @@ class Log {
    * @param {string} id ID of Terminal Element
    */
   constructor(id = "terminal") {
+    const termElm = document.getElementById(id)
+
+    // https://xtermjs.org/docs/api/addons/fit/
     this.term = new Terminal()
-    this.term.open(document.getElementById(id))
+    const fitAddon = new FitAddon()
+    this.term.loadAddon(fitAddon)
+    this.term.open(termElm)
+    fitAddon.fit()
+
+    termElm?.addEventListener("resize", () => {
+      fitAddon.fit()
+    })
+
     this.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
   }
 
@@ -96,6 +107,8 @@ class Log {
    * @returns {void}
    */
   write(msg) {
+    // Console Escapesequence seem to be only supportd in Chromium lol
+    // https://bugzilla.mozilla.org/show_bug.cgi?id=1720116
     console.log(msg)
     this.term.write(msg + "\r\n")
   }
@@ -110,7 +123,7 @@ class Log {
     const now = new Date()
     const modData = this.mod[module]
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
-    this.write(`${ts}  ${text.color(" "+module.padEnd(8, " "), modData[0], modData[1])} ${msg}`)
+    this.write(`${ts} ${text.color(" "+module.padEnd(8, " "), modData[0], modData[1])} ${msg}`)
   }
 
   /**
