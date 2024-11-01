@@ -89,7 +89,7 @@ class Log {
 
     // https://xtermjs.org/docs/api/addons/fit/
     this.term = new Terminal()
-    const fitAddon = new FitAddon()
+    const fitAddon = new FitAddon.FitAddon()
     this.term.loadAddon(fitAddon)
     this.term.open(termElm)
     fitAddon.fit()
@@ -123,7 +123,7 @@ class Log {
     const now = new Date()
     const modData = this.mod[module]
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
-    this.write(`${ts} ${text.color(" "+module.padEnd(8, " "), modData[0], modData[1])} ${msg}`)
+    this.write(`${ts} ${text.color(text.style.bold+" "+module.padEnd(8, " "), modData[0], modData[1])} ${msg}`)
   }
 
   /**
@@ -132,7 +132,7 @@ class Log {
    * @param {string} msg
    */
   welcome(mod, msg) {
-    this.write(` * ${mod.toUpperCase().padEnd(12, " ")} ${msg}`)
+    this.write(` ${text.color("*", "green")} ${text.style.bold + mod.toUpperCase().padEnd(12, " ") + text.reset} ${msg}`)
   }
 
   debug(msg) {

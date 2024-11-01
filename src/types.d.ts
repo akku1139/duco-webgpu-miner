@@ -4,6 +4,4 @@ declare class Terminal {
   loadAddon(addon: any)
 }
 
-declare class FitAddon{
-  fit()
-}
+declare const FitAddon: any
