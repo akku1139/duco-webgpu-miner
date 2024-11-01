@@ -182,16 +182,17 @@ class PoolManager {
     if(this.#useWS) {
       this.#ws.send(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {
+      const now = new Date()
       const ret = await (await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
         i: navigator.userAgent,
-        nocache: new Date.getTime()
+        nocache: now.getTime() + now.getMilliseconds()
       })).text()
       const job = ret.split(",")
       return {
         last: job[0],
         target: job[1],
-        diff: job[2],
+        diff: Number(job[2]),
       }
     }
   }
@@ -207,18 +208,15 @@ const log = new Log()
 const main = async () => {
   log.welcome("about", "Duino-Coin WebGPU Miner v0.0.0")
 
-  const adapter = await navigator.gpu?.requestAdapter()
-  const gpuInfo = await adapter?.requestAdapterInfo()
+  if(!navigator.gpu) {
+    log.emit("gpu", "Yout browser is not suppoting WebGPU. stopping...")
+    return
+  }
 
+  const adapter = await navigator.gpu?.requestAdapter()
   const device = await adapter?.requestDevice()
 
   log.welcome("WebGPU", device?.label ?? "No device found")
-  log.debug(JSON.stringify({
-    architecture: gpuInfo.architecture,
-    description: gpuInfo.description,
-    device: gpuInfo.device,
-    vendor:gpuInfo.vendor,
-  }))
   log.emit("sys", "Hi")
 
   const params = new URL(location.href).searchParams
