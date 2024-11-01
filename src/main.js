@@ -163,10 +163,10 @@ class PoolManager {
    */
   async #waitWS(msg) {
     return new Promise((resolve) => {
-      this.#ws.send(msg);
       this.#ws.onmessage = (event) => {
         resolve(event.data)
       }
+      this.#ws.send(msg);
     })
   }
 
