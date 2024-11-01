@@ -143,6 +143,13 @@ class PoolManager {
 
       if(!isSuccess) {
         useWS = false
+      } else {
+        // 3.0
+        await new Promise((resolve) => {
+          ws.onmessage = (event) => {
+            resolve(event.data)
+          }
+        })
       }
     }
 
@@ -202,6 +209,28 @@ class PoolManager {
   }
 
   async sendShare(nonce) {
+    // WebMiner
+    // 1886458,178457.65,Official Web Miner 3.4,None,,2363
+    // MiniMiner
+    // https://github.com/revoxhere/duco-webservices/blob/master/miniminer.html#L534C1-L550C1
+    /*
+            feedback = httpPost(base_url +
+            "/legacy_job?u=" + username +
+            "&r=" + result +
+            "&k=" + key +
+            "&s=Official Mini Miner 3.2" +
+            "&j=" + expected_hash +
+            "&i=" + navigator.userAgent +
+            "&h=" + hashrate +
+            "&b=" + sharetime +
+            "&nocache=" + new Date().getTime());
+
+        if (feedback == "GOOD") {
+            accepted++;
+        } else {
+            rejected++;
+        }
+    */
 
   }
 }
