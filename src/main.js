@@ -26,25 +26,25 @@ const text = new class {
   faint = "\e[2m"
 
   fg = {
-    black:    "\e[30m",
-    red:      "\e[31m",
-    green:    "\e[32m",
-    yellow:   "\e[33m",
-    blue:     "\e[34m",
-    magenta:  "\e[35m",
-    syan:     "\e[36m",
-    white:    "\e[37m",
+    black:    "\x1b[30m",
+    red:      "\x1b[31m",
+    green:    "\x1b[32m",
+    yellow:   "\x1b[33m",
+    blue:     "\x1b[34m",
+    magenta:  "\x1b[35m",
+    syan:     "\x1b[36m",
+    white:    "\x1b[37m",
   }
 
   bg = {
-    black:    "\e[40m",
-    red:      "\e[41m",
-    green:    "\e[42m",
-    yellow:   "\e[43m",
-    blue:     "\e[44m",
-    magenta:  "\e[45m",
-    syan:     "\e[46m",
-    white:    "\e[47m",
+    black:    "\x1b[40m",
+    red:      "\x1b[41m",
+    green:    "\x1b[42m",
+    yellow:   "\x1b[43m",
+    blue:     "\x1b[44m",
+    magenta:  "\x1b[45m",
+    syan:     "\x1b[46m",
+    white:    "\x1b[47m",
   }
 
   /**
