@@ -213,12 +213,13 @@ const main = async () => {
   const device = await adapter?.requestDevice()
 
   log.welcome("WebGPU", device?.label ?? "No device found")
-  log.debug(JSON.stringify({
+  log.debug(device?.__brand)
+  log.debug({
     architecture: gpuInfo.architecture,
     description: gpuInfo.description,
     device: gpuInfo.device,
     vendor:gpuInfo.vendor,
-  }))
+  })
   log.emit("sys", "Hi")
 
   const params = new URL(location.href).searchParams
