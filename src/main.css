@@ -4,15 +4,15 @@ body {
 }
 
 #terminal {
-  /* border: none;
+  border: none;
   position: absolute;
   top: 0;
-  left: 0; */
+  left: 0;
   width: 100%;
   height: 100%;
 }
 
 .xterm.terminal {
-  /* height: 100%; */
+  height: calc(100% - 1rem);
   padding: 0.5rem;
 }

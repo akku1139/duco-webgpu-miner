@@ -1,6 +1,6 @@
 //@ts-check
-/// <reference types="./webgpu-types.d.ts" />
-/// <reference types="./types.d.ts" />
+/// <reference types="./types/webgpu-types.d.ts" />
+/// <reference types="./types/types.d.ts" />
 
 "use strict"
 
