@@ -1,3 +1,6 @@
+import { log } from "./log.ts"
+import { round } from "./utils.ts"
+
 type Job = {
   last: string
   target: string
@@ -5,21 +8,19 @@ type Job = {
 }
 
 export class PoolManager {
+  username
+  rigid
+
+  job
+
   #httpURL
   #useWS
   #ws
   #baseDiff
   #miningKey
 
-  /**
-   * @type {number}
-   */
-  #startTime
-
-  /**
-   * @type {number}
-   */
-  #threadID
+  #startTime: number
+  #threadID: number
 
   #minerName = "Duino-Coin WebGPU Miner 0.0"
 
@@ -27,14 +28,8 @@ export class PoolManager {
    * Do not use it.
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
-   *
-   * @param {string} username
-   * @param {string} rigid
-   * @param {string} miningKey
-   * @param {boolean} useWS
-   * @param {WebSocket} ws
    */
-  constructor(username, rigid, miningKey, useWS, ws) {
+  constructor(username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
     this.username = username
     this.rigid = rigid ?? ""
     this.#miningKey = miningKey ?? "None"
@@ -59,7 +54,7 @@ export class PoolManager {
     log.emit("net", `login as ${username}`)
   }
 
-  static async new(username, rigid, miningKey, noWS) {
+  static async new(username: string, rigid: string, miningKey: string, noWS: boolean) {
     let useWS = true
     /**
      * @type {WebSocket}
@@ -102,6 +97,7 @@ export class PoolManager {
           ws.onmessage = (event) => {
             resolve(event.data)
           }
+          setTimeout(resolve, 1000)
         })
       }
     }
@@ -110,11 +106,7 @@ export class PoolManager {
     return self
   }
 
-  /**
-   * @param {string} msg
-   * @returns {Promise<string>}
-   */
-  async #waitWS(msg) {
+  async #waitWS(msg: string) {
     return new Promise((resolve) => {
       this.#ws.onmessage = (event) => {
         resolve(event.data)
@@ -123,13 +115,7 @@ export class PoolManager {
     })
   }
 
-  /**
-   *
-   * @param {string} method GET POST etc...
-   * @param {string} path /path/to/content
-   * @param {{[key: string]: string}} params HTTP Query Parameters
-   */
-  async #sendHTTP(method, path, params) {
+  async #sendHTTP(method: string, path: string, params: {[key: string]: string}) {
     const url = new URL(`${path}?${new URLSearchParams(params).toString()
       }`, this.#httpURL)
     return await fetch(url, {
@@ -137,10 +123,7 @@ export class PoolManager {
     })
   }
 
-  /**
-   * @returns {Promise<Job>}
-   */
-  async getJob() {
+  async getJob(): Promise<Job> {
     // Format
     // UserName,StartDiff,MinerKey,DucoIoT
     // https://github.com/revoxhere/duino-coin/blob/master/ESP_Code/MiningJob.h#L356C1-L362C1
@@ -175,11 +158,7 @@ export class PoolManager {
     }
   }
 
-  /**
-   *
-   * @param {number} nonce
-   */
-  async sendShare(nonce) {
+  async sendShare(nonce: number) {
     // WebMiner
     // 1886458,178457.65,Official Web Miner 3.4,None,,2363
     // MiniMiner
@@ -239,7 +218,7 @@ export class PoolManager {
         j: this.job.target,
         i: navigator.userAgent,
         h: hashrate.toString(),
-        b: utils.round(timeDiff, 0.1).toString(),
+        b: round(timeDiff, 0.1).toString(),
         nocache: now.getTime().toString(),
       })).text()
     }
