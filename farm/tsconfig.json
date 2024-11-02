@@ -5,12 +5,12 @@
     "module": "ESNext",
     "lib": ["ESNext", "DOM", "DOM.Iterable", "WebWorker"],
     "typeRoots": ["./src/lib/webgpu-types.d.ts"],
-    "skipLibCheck": true,
+    // "skipLibCheck": true,
 
     /* Bundler mode */
-    "moduleResolution": "Bundler",
+    "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
-    "moduleDetection": "force",
+    "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
 
@@ -19,12 +19,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true,
 
     "baseUrl": ".",
 		"paths": {
 			"@/*": ["./src/*"]
 		}
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

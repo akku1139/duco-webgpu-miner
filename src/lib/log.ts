@@ -106,7 +106,7 @@ export class Log {
   }
 
   welcome(mod: string, msg: string) {
-    this.write(` ${text.color("*", "green")} ${text.style.bold + mod.toUpperCase().padEnd(12, " ") + text.reset} ${msg}`)
+    this.write(` ${text.color("*", "green")} ${text.style.bold + mod.toUpperCase().padEnd(12, " ")} ${msg}`)
   }
 
   debug(msg: string) {

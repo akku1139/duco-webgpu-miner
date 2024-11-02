@@ -1,4 +1,4 @@
-import { PoolManager } from "@/lib/pool.js"
+import { PoolManager } from "@/lib/pool.ts"
 import { Log } from "@/lib/log.ts"
 import type { Config } from "@/lib/types.ts"
 
