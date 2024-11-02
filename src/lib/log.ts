@@ -1,5 +1,6 @@
 import { Terminal } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
+import type { Config } from "./types.ts"
 
 export const text = new class {
   // https://qiita.com/PruneMazui/items/8a023347772620025ad6
@@ -50,42 +51,51 @@ export const text = new class {
  * [2024-10-30 23:28:07.730]  miner    speed 10s/60s/15m 1986.0 1943.3 1952.7 H/s max 2384.1 H/s
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
-class Log {
+export class Log {
   term: Terminal
+  isWorker: boolean
 
   mod: {[key in string]: [keyof typeof text.fg, keyof typeof text.bg]} = {
     debug:  ["none", "none"],
     net:    ["white", "blue"],
     sys:    ["white", "yellow"],
-    webgpu:    ["white", "magenta"],
+    webgpu: ["white", "magenta"],
   }
 
-  /**
-   * Init
-   * @param {string} id ID of Terminal Element
-   */
-  constructor(id = "terminal") {
-    const termElm = document.getElementById(id) as HTMLElement
+  constructor(isWorker: boolean = true) {
+    this.isWorker = isWorker
+    if(isWorker) {
+      // @ts-ignore
+      this.term = void 0
+    } else {
+      const termElm = document.getElementById("terminal") as HTMLElement
 
-    // https://xtermjs.org/docs/api/addons/fit/
-    this.term = new Terminal()
-    const fitAddon = new FitAddon()
-    this.term.loadAddon(fitAddon)
-    this.term.open(termElm)
-    fitAddon.fit()
-
-    window.addEventListener("resize", () => {
+      // https://xtermjs.org/docs/api/addons/fit/
+      this.term = new Terminal()
+      const fitAddon = new FitAddon()
+      this.term.loadAddon(fitAddon)
+      this.term.open(termElm)
       fitAddon.fit()
-    })
 
+      window.addEventListener("resize", () => {
+        fitAddon.fit()
+      })
+    }
     // this.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
   }
 
   write(msg: string) {
-    // Console Escapesequence seem to be only supportd in Chromium lol
-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1720116
-    console.log(msg)
-    this.term.write(msg + "\r\n")
+    if(this.isWorker) {
+      postMessage({
+        type: "log",
+        msg
+      })
+    } else {
+      // Console Escapesequence seem to be only supportd in Chromium lol
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=1720116
+      console.log(msg)
+      this.term.write(msg + "\r\n")
+    }
   }
 
   emit(module: keyof typeof this.mod, msg: string) {
@@ -102,6 +112,22 @@ class Log {
   debug(msg: string) {
     this.emit("debug", msg)
   }
+
+  /**
+   * Although it is not originally Logger's job, it also initializes Worker.
+   */
+  addWorker(worker: Worker, thread: number, config: Config) {
+    worker.postMessage({
+      type: "init",
+      thread,
+      config,
+    })
+    worker.addEventListener("message", (e) => {
+      if(e.data.type === "log") {
+        this.write(e.data.msg)
+      }
+    })
+  }
 }
 
-export const log = new Log()
+export const log = new Log(false)
