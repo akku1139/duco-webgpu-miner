@@ -27,10 +27,14 @@ const main = async () => {
     noWS: Boolean(params.get("nows") ?? false),
   }
 
+  // WebWorker in Farm
+  // https://github.com/farm-fe/farm/blob/30a70a9c0dd3db5c01b37c845175ba0239369fe1/crates/core/src/plugin/mod.rs#L310
+  // https://github.com/farm-fe/farm/issues/10
+
   if(Boolean(params.get("backend-webcrypto"))) {
     for (let thread = 0; thread < Number(params.get("backend-webcrypto-threads") ?? 1); thread++) {
       log.addWorker(
-        new Worker("./miner/webcrpyto.ts", {type: "module"}),
+        new Worker(new URL("./miner/webcrpyto.ts", import.meta.url), {type: "module"}),
         thread,
         config,
       )
