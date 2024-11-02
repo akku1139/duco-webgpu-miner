@@ -221,8 +221,12 @@ export class PoolManager {
         nocache: now.getTime().toString(),
       })).text()
     }
+
+    const f = feedback.split(",")
+
     return {
-      feedback: feedback === "GOOD",
+      result: f[0],
+      msg: f[1] ?? "",
       hashrate,
     }
   }

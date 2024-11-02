@@ -36,7 +36,7 @@ const start = async () => {
 
       if(hashHex === job.target) {
         pool.sendShare(i).then(res => {
-          log.emit(`cpu${thread}`, `${res.feedback} (${res.hashrate} H/s)`)
+          log.emit(`cpu${thread}`, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
         })
         break
       }
