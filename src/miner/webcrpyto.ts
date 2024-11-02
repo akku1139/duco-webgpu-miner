@@ -35,6 +35,7 @@ const start = async () => {
       )).map(b => b.toString(16).padStart(2, "0")).join("")
 
       if(hashHex === job.target) {
+        log.debug(`nonce: ${i}`)
         pool.sendShare(i).then(res => {
           log.emit(`cpu${thread}`, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
         })

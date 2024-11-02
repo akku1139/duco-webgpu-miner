@@ -10,7 +10,7 @@ export class PoolManager {
   username
   rigid
 
-  job
+  job: Job
 
   #httpURL
   #useWS
@@ -31,7 +31,7 @@ export class PoolManager {
   constructor(username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
     this.username = username
     this.rigid = rigid ?? ""
-    this.#miningKey = miningKey ?? "None"
+    this.#miningKey = miningKey || "None"
     this.#useWS = useWS
     this.#ws = ws
     this.#baseDiff = "LOW"
@@ -39,8 +39,8 @@ export class PoolManager {
     this.#threadID = Math.floor(Math.random() * 10000)
 
     this.job = {
-      last: "",
-      target: "",
+      last: "dummy",
+      target: "dummy",
       diff: 0,
     }
 
@@ -149,12 +149,13 @@ export class PoolManager {
 
     this.#startTime = new Date().getTime()
 
-    const job = res.split(",")
-    return {
-      last: job[0],
-      target: job[1],
-      diff: Number(job[2]),
+    const data  = res.split(",")
+    this.job = {
+      last: data[0],
+      target: data[1],
+      diff: Number(data[2]),
     }
+    return this.job
   }
 
   async sendShare(nonce: number) {
