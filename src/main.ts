@@ -1,8 +1,7 @@
-//@ts-check
-/// <reference types="./types/webgpu-types.d.ts" />
-/// <reference types="./types/types.d.ts" />
+import { Terminal } from "@xterm/xterm"
+import { FitAddon } from "@xterm/addon-fit"
+import "@xterm/xterm/css/xterm.css"
 
-"use strict"
 
 const utils = {
   /**
@@ -89,7 +88,7 @@ class Log {
 
     // https://xtermjs.org/docs/api/addons/fit/
     this.term = new Terminal()
-    const fitAddon = new FitAddon.FitAddon()
+    const fitAddon = new FitAddon()
     this.term.loadAddon(fitAddon)
     this.term.open(termElm)
     fitAddon.fit()
