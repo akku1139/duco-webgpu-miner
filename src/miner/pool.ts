@@ -6,6 +6,12 @@ export type Job = {
   diff: number
 }
 
+export type Result = {
+  result: string,
+  msg: string,
+  hashrate: string,
+}
+
 export class PoolManager {
   username
   rigid
@@ -30,7 +36,7 @@ export class PoolManager {
    */
   constructor(username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
     this.username = username
-    this.rigid = rigid ?? ""
+    this.rigid = rigid ?? "None"
     this.#miningKey = miningKey || "None"
     this.#useWS = useWS
     this.#ws = ws
@@ -158,7 +164,7 @@ export class PoolManager {
     return this.job
   }
 
-  async sendShare(nonce: number) {
+  async sendShare(nonce: number): Promise<Result> {
     // WebMiner
     // 1886458,178457.65,Official Web Miner 3.4,None,,2363
     // MiniMiner
@@ -202,8 +208,8 @@ export class PoolManager {
 
     // result(nonce),hashrate,miner name,identifier(rig name),DUCOID,thread id(random?)
 
-    const timeDiff = new Date().getTime() - this.#startTime
-    const hashrate = nonce / timeDiff / 1000
+    const timeDiff = (new Date().getTime() - this.#startTime) / 1000
+    const hashrate = nonce / timeDiff
 
     let feedback
     if (this.#useWS) {
@@ -218,7 +224,7 @@ export class PoolManager {
         j: this.job.target,
         i: navigator.userAgent,
         h: hashrate.toString(),
-        b: roundAndString(timeDiff, 1),
+        b: roundAndString(timeDiff, 2),
         nocache: now.getTime().toString(),
       })).text()
     }
@@ -228,7 +234,7 @@ export class PoolManager {
     return {
       result: f[0],
       msg: f[1] ?? "",
-      hashrate,
+      hashrate: hashrate.toString(),
     }
   }
 }

@@ -1,5 +1,5 @@
 import { text } from "@/lib/utils.ts"
-import { PoolManager, type Job } from "./pool.ts"
+import { PoolManager, type Job, type Result } from "./pool.ts"
 import { WorkerLog } from "./workerLog.ts"
 import type { Config } from "@/lib/types.ts"
 
@@ -23,6 +23,7 @@ addEventListener("message", async (e) => {
 
 const start = async () => {
   let job: Job
+  let res: Result
   let hashHex: string
   const encoder = new TextEncoder()
 
@@ -39,9 +40,8 @@ const start = async () => {
 
       if(hashHex === job.target) {
         log.debug(`nonce: ${i}`)
-        pool.sendShare(i).then(res => {
-          log.emit(mod, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
-        })
+        res = await pool.sendShare(i)
+        log.emit(mod, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
         break
       }
     }
