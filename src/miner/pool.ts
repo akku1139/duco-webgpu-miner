@@ -118,7 +118,6 @@ export class PoolManager {
   async #waitWS(msg: string): Promise<string> {
     return new Promise((resolve) => {
       this.#ws.onmessage = (event) => {
-        this.log.debug(event.data)
         resolve(event.data)
       }
       this.#ws.send(msg)
@@ -216,8 +215,6 @@ export class PoolManager {
     const timeDiff = (new Date().getTime() - this.#startTime) / 1000
     const hashrate = nonce / timeDiff
 
-    this.log.debug("hashrate calc")
-
     let feedback
     if (this.#useWS) {
       feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
@@ -236,7 +233,7 @@ export class PoolManager {
       })).text()
     }
 
-    this.log.debug("send")
+    this.log.debug("res: "+feedback)
 
     const f = feedback.split(",")
 
