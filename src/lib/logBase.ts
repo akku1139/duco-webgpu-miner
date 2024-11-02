@@ -13,7 +13,7 @@ export class LogBase {
     debug:  ["none", "none"],
     net:    ["white", "blue"],
     sys:    ["white", "yellow"],
-    webgpu: ["white", "magenta"],
+    gpu:    ["white", "magenta"],
   }
 
   constructor() {

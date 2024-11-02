@@ -1,6 +1,6 @@
 import { round } from "./utils.ts"
 
-type Job = {
+export type Job = {
   last: string
   target: string
   diff: number
