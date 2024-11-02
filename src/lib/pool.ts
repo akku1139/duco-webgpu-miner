@@ -18,7 +18,7 @@ export class PoolManager {
   #baseDiff
   #miningKey
 
-  #startTime: number
+  #startTime: number = 0
   #threadID: number
 
   #minerName = "Duino-Coin WebGPU Miner 0.0"
