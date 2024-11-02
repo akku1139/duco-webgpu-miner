@@ -1,4 +1,4 @@
-import { PoolManager, type Job } from "@/lib/pool.ts"
+import { PoolManager, type Job } from "./pool.ts"
 import { WorkerLog } from "./workerLog.ts"
 import type { Config } from "@/lib/types.ts"
 
@@ -26,7 +26,6 @@ const start = async () => {
   while(true) {
     job = await pool.getJob()
     log.emit("net", JSON.stringify(job))
-    log.debug(`Web Crypto thread ${thread}`)
 
     for(let i = 0; i < job.diff * 100 + 1; i++) {
       hashHex = Array.from(new Uint8Array(
@@ -37,10 +36,11 @@ const start = async () => {
 
       if(hashHex === job.target) {
         pool.sendShare(i).then(res => {
-          log.emit(`cpu ${thread}`, `${res.feedback} (${res.hashrate} H/s)`)
+          log.emit(`cpu${thread}`, `${res.feedback} (${res.hashrate} H/s)`)
         })
         break
       }
     }
+    log.emit(`cpu${thread}`, "nonce out of range...")
   }
 }

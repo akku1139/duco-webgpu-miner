@@ -1,4 +1,4 @@
-import { round } from "./utils.ts"
+import { round } from "@/lib/utils.ts"
 
 export type Job = {
   last: string
@@ -209,7 +209,7 @@ export class PoolManager {
       feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
     } else {
       const now = new Date()
-      feedback = await (await this.#sendHTTP("get", "/legacy_job", {
+      feedback = await (await this.#sendHTTP("post", "/legacy_job", {
         u: this.username,
         r: nonce.toString(),
         k: this.#miningKey,
