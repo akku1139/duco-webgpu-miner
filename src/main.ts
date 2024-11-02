@@ -48,7 +48,7 @@ const text = new class {
   }
 
   color(text: string, fg: keyof typeof text.fg, bg: keyof typeof text.bg="none") {
-    return this.fg[fg] + this.bg[bg] + text + thi:s.reset
+    return this.fg[fg] + this.bg[bg] + text + this.reset
   }
 }()
 
