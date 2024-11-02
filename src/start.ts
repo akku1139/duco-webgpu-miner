@@ -1,5 +1,7 @@
 // https://webgpufundamentals.org/webgpu/lessons/ja/webgpu-fundamentals.html
 
+/*
+
 async function start() {
   if (!navigator.gpu) {
     fail('this browser does not support WebGPU');
@@ -30,3 +32,5 @@ start();
 function main(device) {
   ... do webgpu ...
 }
+
+*/
