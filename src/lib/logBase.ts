@@ -1,13 +1,6 @@
 import type { Config } from "./types.ts"
 import { text } from "./utils.ts"
 
-const mod: {[key in string]: {fg: keyof typeof text.fg, bg: keyof typeof text.bg}} = {
-  debug:  {fg: "none",  bg: "none"},
-  net:    {fg: "white", bg: "blue"},
-  sys:    {fg: "white", bg: "yellow"},
-  gpu:    {fg: "white", bg: "magenta"},
-}
-
 /**
  * XMRig like very cool log util
  * [2024-10-30 23:28:01.268]  net      new job from jp.moneroocean.stream:20004 diff 53371 algo rx/0 height 3270473 (5 tx)
@@ -16,15 +9,23 @@ const mod: {[key in string]: {fg: keyof typeof text.fg, bg: keyof typeof text.bg
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
 export class LogBase {
+  mod: {[key in string]: {fg: keyof typeof text.fg, bg: keyof typeof text.bg}}
+
   constructor() {
+    this.mod = {
+      debug:  {fg: "none",  bg: "none"},
+      net:    {fg: "white", bg: "blue"},
+      sys:    {fg: "white", bg: "yellow"},
+      gpu:    {fg: "white", bg: "magenta"},
+    }
   }
 
   write(msg: string) {
   }
 
-  emit(module: keyof typeof mod, msg: string) {
+  emit(module: keyof typeof this.mod, msg: string) {
     const now = new Date()
-    const modData = mod[module]
+    const modData = this.mod[module]
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
     this.write(`${ts} ${text.color(text.style.bold+" "+module.padEnd(8, " "), modData.fg, modData.bg)} ${msg}`)
   }
