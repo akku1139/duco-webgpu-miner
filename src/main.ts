@@ -3,7 +3,6 @@ import { log } from "./lib/log.ts"
 import "@xterm/xterm/css/xterm.css"
 import "./main.css"
 
-import WebCryptoBE from "./miner/webcrpyto.ts?worker"
 import type { Config } from "./lib/types.ts"
 
 const main = async () => {
@@ -31,7 +30,7 @@ const main = async () => {
   if(Boolean(params.get("backend-webcrypto"))) {
     for (let thread = 0; thread < Number(params.get("backend-webcrypto-threads") ?? 1); thread++) {
       log.addWorker(
-        new WebCryptoBE(),
+        new Worker("./miner/webcrpyto.ts", {type: "module"}),
         thread,
         config,
       )
