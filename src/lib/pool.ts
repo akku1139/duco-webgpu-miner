@@ -1,4 +1,3 @@
-import { log } from "./log.ts"
 import { round } from "./utils.ts"
 
 type Job = {
@@ -51,7 +50,7 @@ export class PoolManager {
       this.#httpURL = "https://server.duinocoin.com"
     }
 
-    log.emit("net", `login as ${username}`)
+    // log.emit("net", `login as ${username}`)
   }
 
   static async new(username: string, rigid: string, miningKey: string, noWS: boolean) {
@@ -59,7 +58,7 @@ export class PoolManager {
     /**
      * @type {WebSocket}
      */
-    let ws
+    let ws: WebSocket
     if (noWS) {
       useWS = false
       //@ts-ignore
@@ -68,7 +67,7 @@ export class PoolManager {
       useWS = false
       //@ts-ignore
       ws = void 0
-      log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
+      // log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
     } else {
       let wsURL = "wss://magi.duinocoin.com:8443/"
 
@@ -106,12 +105,12 @@ export class PoolManager {
     return self
   }
 
-  async #waitWS(msg: string) {
+  async #waitWS(msg: string): Promise<string> {
     return new Promise((resolve) => {
       this.#ws.onmessage = (event) => {
         resolve(event.data)
       }
-      this.#ws.send(msg);
+      this.#ws.send(msg)
     })
   }
 
@@ -136,7 +135,7 @@ export class PoolManager {
                         SEP_TOKEN + "Temp:" + String(temp) + "*C" +
                         END_TOKEN);
     */
-    let res
+    let res: string
     if (this.#useWS) {
       res = await this.#waitWS(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {

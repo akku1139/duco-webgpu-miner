@@ -1,10 +1,6 @@
 import { PoolManager } from "@/lib/pool.js"
 
-
-/**
- * @type {PoolManager}
- */
-let pool
+let pool: PoolManager
 
 addEventListener("message", async (e) => {
   pool = await PoolManager.new(

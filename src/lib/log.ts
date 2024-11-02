@@ -1,6 +1,48 @@
 import { Terminal } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
 
+export const text = new class {
+  // https://qiita.com/PruneMazui/items/8a023347772620025ad6
+  // https://gist.github.com/inexorabletash/9122583
+  // noReset option?
+
+  reset = "\x1b[0m"
+
+  style = {
+    none:   "",
+    bold:   "\x1b[1m",
+    faint:  "\x1b[2m",
+  }
+
+  fg = {
+    none:     "",
+    black:    "\x1b[30m",
+    red:      "\x1b[31m",
+    green:    "\x1b[32m",
+    yellow:   "\x1b[33m",
+    blue:     "\x1b[34m",
+    magenta:  "\x1b[35m",
+    syan:     "\x1b[36m",
+    white:    "\x1b[37m",
+  }
+
+  bg = {
+    none:     "",
+    black:    "\x1b[40m",
+    red:      "\x1b[41m",
+    green:    "\x1b[42m",
+    yellow:   "\x1b[43m",
+    blue:     "\x1b[44m",
+    magenta:  "\x1b[45m",
+    syan:     "\x1b[46m",
+    white:    "\x1b[47m",
+  }
+
+  color(text: string, fg: keyof typeof this.fg, bg: keyof typeof this.bg="none") {
+    return this.fg[fg] + this.bg[bg] + text + this.reset
+  }
+}()
+
 /**
  * XMRig like very cool log util
  * [2024-10-30 23:28:01.268]  net      new job from jp.moneroocean.stream:20004 diff 53371 algo rx/0 height 3270473 (5 tx)
