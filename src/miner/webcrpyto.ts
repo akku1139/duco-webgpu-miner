@@ -1,3 +1,4 @@
+import { text } from "@/lib/utils.ts"
 import { PoolManager, type Job } from "./pool.ts"
 import { WorkerLog } from "./workerLog.ts"
 import type { Config } from "@/lib/types.ts"
@@ -6,6 +7,7 @@ let pool: PoolManager
 let thread: number
 
 const log = new WorkerLog()
+let mod: string
 
 addEventListener("message", async (e) => {
   if(e.data.type === "init") {
@@ -14,6 +16,7 @@ addEventListener("message", async (e) => {
       c.username, c.rigID, c.miningKey, c.noWS,
     )
     thread = e.data.thread
+    mod = `cpu${thread}`
     start()
   }
 })
@@ -37,11 +40,12 @@ const start = async () => {
       if(hashHex === job.target) {
         log.debug(`nonce: ${i}`)
         pool.sendShare(i).then(res => {
-          log.emit(`cpu${thread}`, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
+          log.emit(mod, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
         })
         break
       }
     }
-    log.emit(`cpu${thread}`, "nonce out of range...")
+    log.emit(mod, "nonce out of range...")
   }
+  log.emit(mod, text.color("exit...", "red"))
 }

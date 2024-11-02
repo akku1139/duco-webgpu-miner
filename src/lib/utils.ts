@@ -1,5 +1,5 @@
-export const round = (value: number, base: number): number => {
-  return Math.round(value * base) / base
+export const roundAndString = (value: number, digit: number): string => {
+  return value.toFixed(digit)
 }
 
 export const text = new class {

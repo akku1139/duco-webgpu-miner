@@ -1,4 +1,4 @@
-import { round } from "@/lib/utils.ts"
+import { roundAndString } from "@/lib/utils.ts"
 
 export type Job = {
   last: string
@@ -218,7 +218,7 @@ export class PoolManager {
         j: this.job.target,
         i: navigator.userAgent,
         h: hashrate.toString(),
-        b: round(timeDiff, 0.1).toString(),
+        b: roundAndString(timeDiff, 1),
         nocache: now.getTime().toString(),
       })).text()
     }
