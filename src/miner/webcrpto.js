@@ -1,4 +1,4 @@
-import { PoolManager } from "/src/lib/pool.js"
+import { PoolManager } from "@/lib/pool.js"
 
 
 /**
