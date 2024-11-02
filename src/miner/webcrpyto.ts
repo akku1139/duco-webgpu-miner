@@ -1,11 +1,11 @@
 import { PoolManager } from "@/lib/pool.ts"
-import { Log } from "@/lib/log.ts"
+import { WorkerLog } from "./workerLog.ts"
 import type { Config } from "@/lib/types.ts"
 
 let pool: PoolManager
 let thread: number
 
-const log = new Log()
+const log = new WorkerLog()
 
 addEventListener("message", async (e) => {
   if(e.data.type === "init") {

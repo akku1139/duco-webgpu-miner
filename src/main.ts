@@ -1,4 +1,5 @@
-import { log, text } from "./lib/log.ts"
+import { log } from "./lib/log.ts"
+import { text } from "./lib/utils.ts"
 
 import "@xterm/xterm/css/xterm.css"
 import "./main.css"
