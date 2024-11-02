@@ -63,7 +63,7 @@ export class PoolManager {
       useWS = false
       //@ts-ignore
       ws = void 0
-    } else if (typeof window.WebSocket === void 0) {
+    } else if (typeof globalThis.WebSocket === void 0) {
       useWS = false
       //@ts-ignore
       ws = void 0
