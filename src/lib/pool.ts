@@ -1,12 +1,8 @@
-"use strict"
-
-/**
- * @typedef {{
-*  last: string
-*  target: string
-*  diff: number
-* }} Job
-*/
+type Job = {
+  last: string
+  target: string
+  diff: number
+}
 
 export class PoolManager {
   #httpURL

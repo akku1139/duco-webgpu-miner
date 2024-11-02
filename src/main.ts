@@ -5,12 +5,7 @@ import "./main.css"
 
 
 const utils = {
-  /**
-   * @param {number} value
-   * @param {number} base 10, 0.1 ...
-   * @returns {number}
-   */
-  round(value, base) {
+  round(value: number, base: number): number {
     return Math.round(value * base) / base
   }
 }
@@ -52,13 +47,8 @@ const text = new class {
     white:    "\x1b[47m",
   }
 
-  /**
-   * @param {string} text
-   * @param {keyof typeof text.fg} fg
-   * @param {keyof typeof text.bg | undefined} bg
-   */
-  color(text, fg, bg="none") {
-    return this.fg[fg] + this.bg[bg] + text + this.reset
+  color(text: string, fg: keyof typeof text.fg, bg: keyof typeof text.bg="none") {
+    return this.fg[fg] + this.bg[bg] + text + thi:s.reset
   }
 }()
 
@@ -70,6 +60,8 @@ const text = new class {
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
 class Log {
+  term: Terminal
+
   /**
    * @type {{[key in string]: [keyof typeof text.fg, keyof typeof text.bg]}}
    */
@@ -101,37 +93,21 @@ class Log {
     this.write("Hello from \x1B[1;3;31mxterm.js\x1B[0m $ ")
   }
 
-  /**
-   * Write directly to log buffers
-   * @param {string} msg Message
-   * @returns {void}
-   */
-  write(msg) {
+  write(msg: string) {
     // Console Escapesequence seem to be only supportd in Chromium lol
     // https://bugzilla.mozilla.org/show_bug.cgi?id=1720116
     console.log(msg)
     this.term.write(msg + "\r\n")
   }
 
-  /**
-   * Emit log
-   * @param {keyof typeof this.mod} module
-   * @param {string} msg Message
-   * @returns {void}
-   */
-  emit(module, msg) {
+  emit(module: keyof typeof this.mod, msg: string) {
     const now = new Date()
     const modData = this.mod[module]
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
     this.write(`${ts} ${text.color(text.style.bold+" "+module.padEnd(8, " "), modData[0], modData[1])} ${msg}`)
   }
 
-  /**
-   * Welcome message
-   * @param {string} mod
-   * @param {string} msg
-   */
-  welcome(mod, msg) {
+  welcome(mod: string, msg: string) {
     this.write(` ${text.color("*", "green")} ${text.style.bold + mod.toUpperCase().padEnd(12, " ") + text.reset} ${msg}`)
   }
 
