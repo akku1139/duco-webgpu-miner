@@ -51,5 +51,9 @@ export class LogBase {
         this.write(e.data.msg)
       }
     })
+    worker.addEventListener("error", (e) => {
+      console.log(e)
+      this.debug("error")
+    })
   }
 }
