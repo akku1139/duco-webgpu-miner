@@ -13,7 +13,7 @@ addEventListener("message", async (e) => {
   if(e.data.type === "init") {
     const c: Config = e.data.config
     pool = await PoolManager.new(
-      c.username, c.rigID, c.miningKey, c.noWS,
+      log, c.username, c.rigID + " (CPU)", c.miningKey, c.noWS,
     )
     thread = e.data.thread
     mod = `cpu${thread}`

@@ -1,3 +1,4 @@
+import type { LogBase } from "@/lib/logBase.ts"
 import { roundAndString } from "@/lib/utils.ts"
 
 export type Job = {
@@ -13,6 +14,8 @@ export type Result = {
 }
 
 export class PoolManager {
+  log
+
   username
   rigid
 
@@ -34,9 +37,10 @@ export class PoolManager {
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
    */
-  constructor(username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
+  constructor(log: LogBase, username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
+    this.log = log
     this.username = username
-    this.rigid = rigid ?? "None"
+    this.rigid = rigid || "None"
     this.#miningKey = miningKey || "None"
     this.#useWS = useWS
     this.#ws = ws
@@ -59,7 +63,7 @@ export class PoolManager {
     // log.emit("net", `login as ${username}`)
   }
 
-  static async new(username: string, rigid: string, miningKey: string, noWS: boolean) {
+  static async new(log: LogBase, username: string, rigid: string, miningKey: string, noWS: boolean) {
     let useWS = true
     /**
      * @type {WebSocket}
@@ -107,13 +111,14 @@ export class PoolManager {
       }
     }
 
-    const self = new this(username, rigid, miningKey, useWS, ws)
+    const self = new this(log, username, rigid, miningKey, useWS, ws)
     return self
   }
 
   async #waitWS(msg: string): Promise<string> {
     return new Promise((resolve) => {
       this.#ws.onmessage = (event) => {
+        this.log.debug(event.data)
         resolve(event.data)
       }
       this.#ws.send(msg)
@@ -211,6 +216,8 @@ export class PoolManager {
     const timeDiff = (new Date().getTime() - this.#startTime) / 1000
     const hashrate = nonce / timeDiff
 
+    this.log.debug("hashrate calc")
+
     let feedback
     if (this.#useWS) {
       feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
@@ -228,6 +235,8 @@ export class PoolManager {
         nocache: now.getTime().toString(),
       })).text()
     }
+
+    this.log.debug("send")
 
     const f = feedback.split(",")
 
