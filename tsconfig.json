@@ -10,6 +10,10 @@
     // "typeRoots": [
     //   "./src/webgpu-types.d.ts"
     // ],
-    "noEmit": true
+    // "noEmit": true,
+    "strict": true,
+    "allowJs": true,
+    "checkJs": true,
+    "include": ["src/**/*.ts","src/**/*.js"]
   }
 }
