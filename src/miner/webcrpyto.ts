@@ -17,7 +17,7 @@ addEventListener("message", async (e) => {
     )
     thread = e.data.thread
     log = new WorkerLog(thread.toString())
-    mod = `cpu${thread}`
+    mod = `cpu`
     start()
   }
 })
