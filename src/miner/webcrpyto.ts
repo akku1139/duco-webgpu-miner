@@ -6,7 +6,7 @@ import type { Config } from "@/lib/types.ts"
 let pool: PoolManager
 let thread: number
 
-const log = new WorkerLog()
+let log: WorkerLog
 let mod: string
 
 addEventListener("message", async (e) => {
@@ -16,6 +16,7 @@ addEventListener("message", async (e) => {
       log, c.username, c.rigID + " (CPU)", c.miningKey, c.noWS,
     )
     thread = e.data.thread
+    log = new WorkerLog(thread.toString())
     mod = `cpu${thread}`
     start()
   }

@@ -8,8 +8,8 @@ import { LogBase } from "@/lib/logBase.ts"
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
 export class WorkerLog extends LogBase{
-  constructor() {
-    super()
+  constructor(suffix: string) {
+    super(suffix)
   }
 
   write(msg: string) {

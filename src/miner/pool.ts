@@ -233,7 +233,7 @@ export class PoolManager {
       })).text()
     }
 
-    this.log.debug("res: "+feedback)
+    //this.log.debug("res: "+feedback)
 
     const f = feedback.split(",")
 
