@@ -33,13 +33,15 @@ const start = async () => {
 
   const encoder = new TextEncoder()
 
-  let i: number = 0
+  let i: number
+  let j: number
 
   while(true) {
     job = await pool.getJob()
     baseHash = encoder.encode(job.last)
     targetHash = new Uint8Array(job.target.match(/../g)!.map(hex => parseInt(hex, 16)))
-    for(i = 0; i < job.diff * 100 + 1; i++) {
+
+    hashing: for(i = 0; i < job.diff * 100 + 1; i++) {
       nonceArray = encoder.encode(i.toString())
 
       newData = new Uint8Array(baseHash.length + nonceArray.length)
@@ -48,10 +50,20 @@ const start = async () => {
 
       hash = new Uint8Array(await crypto.subtle.digest("SHA-1", newData))
 
+      for(j = 0; j < 20; j++) {
+        if(baseHash[j] !== hash[j]) {
+          continue hashing
+        }
+      }
+      await pool.sendShare(i)
+      break
+
+      /** 37KH/s
       if(targetHash.every((value, index) => value === hash[index])) {
         await pool.sendShare(i)
         break
       }
+      */
 
       /* 30 KH/s
       hashHex = Array.from(new Uint8Array(

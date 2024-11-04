@@ -54,7 +54,7 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
               + text.style.bold + res.diff + text.reset
               + text.color(` "${res.msg}"`, "red")
-              + " hashrate" + text.color(text.style.bold + res.hashrate, "syan")
+              + " hashrate " + text.color(text.style.bold + res.hashrate, "syan")
               + text.style.faint + " (" + res.time + " ms)" + text.reset,
               res.thread
             )
