@@ -31,7 +31,8 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
               + text.style.bold + res.diff + text.reset
               + " " + text.color(text.style.bold + res.hashrate, "syan")
-              + text.style.faint + " (" + res.time + " ms)" + text.reset
+              + text.style.faint + " (" + res.time + " ms)" + text.reset,
+              res.thread
             )
             break
           case "BLOCK":
@@ -42,7 +43,8 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
               + text.style.bold + res.diff + text.reset
               + " " + text.color(text.style.bold + res.hashrate, "syan")
-              + text.style.faint + " (" + res.time + " ms)" + text.reset
+              + text.style.faint + " (" + res.time + " ms)" + text.reset,
+              res.thread
             )
             break
           case "BAD":
@@ -53,7 +55,8 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
               + text.style.bold + res.diff + text.reset
               + text.color(` "${res.msg}"`, "red")
               + " " + text.color(text.style.bold + res.hashrate, "syan")
-              + text.style.faint + " (" + res.time + " ms)" + text.reset
+              + text.style.faint + " (" + res.time + " ms)" + text.reset,
+              res.thread
             )
             break
         }
