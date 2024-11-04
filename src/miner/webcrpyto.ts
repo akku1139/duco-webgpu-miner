@@ -1,7 +1,7 @@
 import { text } from "@/lib/utils.ts"
-import { PoolManager, type Job, type Result } from "./pool.ts"
+import { PoolManager, type Job } from "./pool.ts"
 import { WorkerLog } from "./workerLog.ts"
-import type { Config } from "@/lib/types.ts"
+import type { Config, Result } from "@/lib/types.ts"
 
 let pool: PoolManager
 
