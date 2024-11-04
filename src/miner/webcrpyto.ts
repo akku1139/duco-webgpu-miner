@@ -36,31 +36,27 @@ const start = async () => {
   let i: number
   let j: number
 
-  let state: boolean = true
-
   while(true) {
-    state = true
     job = await pool.getJob()
     baseHash = encoder.encode(job.last)
     targetHash = new Uint8Array(job.target.match(/../g)!.map(hex => parseInt(hex, 16)))
 
-    hashing: for(i = 0; i < job.diff * 100 + 1 && state; i++) {
+    hashing: for(i = 0; i < job.diff * 100 + 1; i++) {
       nonceArray = encoder.encode(i.toString())
 
       newData = new Uint8Array(baseHash.length + nonceArray.length)
       newData.set(baseHash);
       newData.set(nonceArray, baseHash.length)
 
-      crypto.subtle.digest("SHA-1", newData).then(async (h) => {
-        hash = new Uint8Array(h)
-        for(j = 0; j < 20; j++) {
-          if(targetHash[j] !== hash[j]) {
-            return
-          }
+      hash = new Uint8Array(await crypto.subtle.digest("SHA-1", newData))
+
+      for(j = 0; j < 20; j++) {
+        if(targetHash[j] !== hash[j]) {
+          continue hashing
         }
-        await pool.sendShare(i)
-        state = false
-      })
+      }
+      await pool.sendShare(i)
+      break
 
       /** 37KH/s
       if(targetHash.every((value, index) => value === hash[index])) {
