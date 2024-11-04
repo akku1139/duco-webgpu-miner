@@ -21,8 +21,8 @@ const main = async () => {
     noWS: Boolean(params.get("nows") ?? false),
   }
 
-  log.welcome("CPU", Boolean(params.get("backend-webcrypto"))
-    ? `${params.get("backend-webcrypto-threads")} threads`
+  log.welcome("CPU", Boolean(params.get("cpu"))
+    ? `${params.get("cpu-threads")} threads`
     : text.color("disabled", "red")
   )
 
@@ -39,10 +39,17 @@ const main = async () => {
     log.emit("sys", "Configure miner: https://duco-webgpu.pages.dev/config")
   }
 
-  if(Boolean(params.get("backend-webcrypto"))) {
-    for (let thread = 0; thread < Number(params.get("backend-webcrypto-threads") ?? 1); thread++) {
+  if(Boolean(params.get("cpu"))) {
+    let cpuWorker
+    switch(params.get("cpu-backend")) {
+      case "webcrypto":
+        cpuWorker = WebCryptoBE
+        break
+    }
+
+    for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
       addWorker(
-        new WebCryptoBE(),
+        new cpuWorker(),
         thread.toString(),
         config,
       )

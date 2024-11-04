@@ -10,12 +10,23 @@
       <p><label>Duino-Coin username * : <input type="text" name="username" placeholder="akku" required></label></p>
       <p><label>Mining key: <input type="password" name="miningkey" placeholder="None"></label></p>
       <p><label>Miner name: <input typr="text" name="rigid"></label></p>
+
+      <p><label>GPU: <input type="checkbox" name="gpu" value="true" checked></label></p>
+      <details>
+        <summary>Select backend</summary>
+        <p><label><input type="radio" name="gpu-backend" value="webgpu" checked> WebGPU</label></p>
+      </details>
+
+      <p><label>CPU: <input type="checkbox" name="cpu" value="true" checked></label></p>
+      <p><label>Number of CPU threads: <input type="number" name="cpu-threads" value="1" min="1" step="1"></label></p>
+      <details>
+        <summary>Select backend</summary>
+        <p><label><input type="radio" name="cpu-backend" value="webcrypto" checked> Web Crypto</label></p>
+      </details>
+
       <details>
         <summary>Advanced settings</summary>
         <p><label>Don't use WebSocket: <input type="checkbox" name="nows" value="true"></label></p>
-        <p><label>Enable WebGPU backend: <input type="checkbox" name="backend-webgpu" value="true" checked></label></p>
-        <p><label>Enable Web Crypto backend: <input type="checkbox" name="backend-webcrypto" value="true"></label></p>
-        <p><label>Number of Web Crypto threads: <input type="number" name="backend-webcrypto-threads" value="1" min="1" step="1"></label></p>
       </details>
       <p><input type="submit" value="Start Minig!"></p>
       <p>* Required</p>
