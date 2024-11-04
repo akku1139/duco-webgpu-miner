@@ -30,7 +30,7 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
               text.color(text.style.bold + "accepted", "green")
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
               + text.style.bold + res.diff + text.reset
-              + " " + text.color(text.style.bold + res.hashrate, "syan")
+              + " hashrate" + text.color(text.style.bold + res.hashrate, "syan")
               + text.style.faint + " (" + res.time + " ms)" + text.reset,
               res.thread
             )
@@ -42,7 +42,7 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
               text.color(text.style.bold + "accepted (Block found!)", "green")
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
               + text.style.bold + res.diff + text.reset
-              + " " + text.color(text.style.bold + res.hashrate, "syan")
+              + " hashrate" + text.color(text.style.bold + res.hashrate, "syan")
               + text.style.faint + " (" + res.time + " ms)" + text.reset,
               res.thread
             )
@@ -54,7 +54,7 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
               + text.style.bold + res.diff + text.reset
               + text.color(` "${res.msg}"`, "red")
-              + " " + text.color(text.style.bold + res.hashrate, "syan")
+              + " hashrate" + text.color(text.style.bold + res.hashrate, "syan")
               + text.style.faint + " (" + res.time + " ms)" + text.reset,
               res.thread
             )

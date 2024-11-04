@@ -16,6 +16,7 @@ addEventListener("message", async (e) => {
       log, mod, thread, c.username, c.rigID + " (GPU)", c.miningKey, c.noWS,
     )
     log = new WorkerLog(thread)
+    log.emit(mod, "Starting")
     start()
   }
 })
@@ -31,7 +32,6 @@ const start = async () => {
     for(i = 0; i < job.diff * 100 + 1; i++) {
 
       if(hashHex === job.target) {
-        log.debug(`nonce: ${i}`)
         await pool.sendShare(i)
         break
       }
