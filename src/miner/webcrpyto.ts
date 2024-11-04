@@ -36,7 +36,7 @@ const start = async () => {
 
   while(true) {
     job = await pool.getJob()
-    baseHash = encoder.encode(job.last)
+    baseHash = new Uint8Array(job.last.match(/.{1,2}/g)!.map(hex => parseInt(hex, 16)))
     for(i = 0; i < job.diff * 100 + 1; i++) {
       nonceArray = encoder.encode(i.toString())
 
