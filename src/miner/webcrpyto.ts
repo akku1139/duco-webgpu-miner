@@ -1,7 +1,7 @@
 import { text } from "@/lib/text.ts"
 import { PoolManager, type Job } from "./pool.ts"
 import { WorkerLog } from "./workerLog.ts"
-import type { Config, Result } from "@/lib/types.ts"
+import type { Config } from "@/lib/types.ts"
 
 let pool: PoolManager
 
@@ -22,15 +22,14 @@ addEventListener("message", async (e) => {
 
 const start = async () => {
   let job: Job
-  let res: Result
   let hashHex: string
   const encoder = new TextEncoder()
 
+  let i: number = 0
+
   while(true) {
     job = await pool.getJob()
-    log.emit("net", JSON.stringify(job))
-
-    for(let i = 0; i < job.diff * 100 + 1; i++) {
+    for(i = 0; i < job.diff * 100 + 1; i++) {
       hashHex = Array.from(new Uint8Array(
         await crypto.subtle.digest("SHA-1", encoder.encode(
           job.last + i.toString()
@@ -39,12 +38,10 @@ const start = async () => {
 
       if(hashHex === job.target) {
         log.debug(`nonce: ${i}`)
-        res = await pool.sendShare(i)
-        // log.emit(mod, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
+        await pool.sendShare(i)
         break
       }
     }
-    // log.emit(mod, "nonce out of range...")
   }
   log.emit(mod, text.color("exit...", "red"))
 }
