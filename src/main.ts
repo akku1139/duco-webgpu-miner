@@ -50,6 +50,11 @@ const main = async () => {
           type: 'module'
         })
         break
+      case "js-sha1":
+        cpuWorker = new Worker(new URL("./miner/cpu/js-sha1.ts", import.meta.url), {
+          type: 'module'
+        })
+        break
     }
 
     for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
