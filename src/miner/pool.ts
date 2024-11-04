@@ -1,4 +1,4 @@
-import type { LogBase } from "@/lib/logBase.ts"
+import type { LogBase, LogMod } from "@/lib/logBase.ts"
 import { roundAndString } from "@/lib/utils.ts"
 
 export type Job = {

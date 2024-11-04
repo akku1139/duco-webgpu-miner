@@ -7,17 +7,16 @@ let pool: PoolManager
 let thread: number
 
 let log: WorkerLog
-let mod: string
+const mod = "cpu"
 
 addEventListener("message", async (e) => {
   if(e.data.type === "init") {
     const c: Config = e.data.config
+    thread = e.data.thread
     pool = await PoolManager.new(
       log, c.username, c.rigID + " (CPU)", c.miningKey, c.noWS,
     )
-    thread = e.data.thread
-    log = new WorkerLog(thread.toString())
-    mod = `cpu`
+    log = new WorkerLog(mod, thread.toString())
     start()
   }
 })

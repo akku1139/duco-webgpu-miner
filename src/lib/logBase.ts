@@ -1,6 +1,17 @@
 import type { Config } from "./types.ts"
 import { text } from "./utils.ts"
 
+// bad type
+const mod = {
+  debug:  ["none", "none"],
+  net:    ["white", "blue"],
+  sys:    ["white", "yellow"],
+  cpu:    ["white", "green"],
+  gpu:    ["white", "magenta"],
+} as const satisfies {[key: string]: [keyof typeof text.fg, keyof typeof text.bg]}
+
+export type LogMod = keyof typeof mod
+
 /**
  * XMRig like very cool log util
  * [2024-10-30 23:28:01.268]  net      new job from jp.moneroocean.stream:20004 diff 53371 algo rx/0 height 3270473 (5 tx)
@@ -11,15 +22,6 @@ import { text } from "./utils.ts"
 export class LogBase {
   suffix
 
-  // bad type
-  mod: {[key in string]: [keyof typeof text.fg, keyof typeof text.bg]} = {
-    debug:  ["none", "none"],
-    net:    ["white", "blue"],
-    sys:    ["white", "yellow"],
-    cpu:    ["white", "green"],
-    gpu:    ["white", "magenta"],
-  }
-
   constructor(suffix: string = "") {
     this.suffix = suffix
   }
@@ -27,9 +29,9 @@ export class LogBase {
   write(msg: string) {
   }
 
-  emit(module: keyof typeof this.mod, msg: string) {
+  emit(module: LogMod, msg: string) {
     const now = new Date()
-    const modData = this.mod[module]
+    const modData = mod[module]
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
     this.write(`${ts} ${text.color(text.style.bold+" "+(module+this.suffix).padEnd(8, " "), modData[0], modData[1])} ${msg}`)
   }

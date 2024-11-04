@@ -1,4 +1,4 @@
-import { LogBase } from "@/lib/logBase.ts"
+import { LogBase, type LogMod } from "@/lib/logBase.ts"
 
 /**
  * XMRig like very cool log util
@@ -8,7 +8,7 @@ import { LogBase } from "@/lib/logBase.ts"
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
 export class WorkerLog extends LogBase{
-  constructor(suffix: string) {
+  constructor(defaultMod: LogMod, suffix: string) {
     super(suffix)
   }
 
