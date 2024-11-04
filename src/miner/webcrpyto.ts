@@ -4,7 +4,6 @@ import { WorkerLog } from "./workerLog.ts"
 import type { Config } from "@/lib/types.ts"
 
 let pool: PoolManager
-let thread: number
 
 let log: WorkerLog
 const mod = "cpu"
@@ -12,11 +11,11 @@ const mod = "cpu"
 addEventListener("message", async (e) => {
   if(e.data.type === "init") {
     const c: Config = e.data.config
-    thread = e.data.thread
+    const thread: string = e.data.thread
     pool = await PoolManager.new(
-      log, c.username, c.rigID + " (CPU)", c.miningKey, c.noWS,
+      log, mod, thread, c.username, c.rigID + " (CPU)", c.miningKey, c.noWS,
     )
-    log = new WorkerLog(mod, thread.toString())
+    log = new WorkerLog(thread)
     start()
   }
 })
@@ -41,11 +40,11 @@ const start = async () => {
       if(hashHex === job.target) {
         log.debug(`nonce: ${i}`)
         res = await pool.sendShare(i)
-        log.emit(mod, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
+        // log.emit(mod, `${res.result} ${res.msg} (${res.hashrate} H/s)`)
         break
       }
     }
-    log.emit(mod, "nonce out of range...")
+    // log.emit(mod, "nonce out of range...")
   }
   log.emit(mod, text.color("exit...", "red"))
 }

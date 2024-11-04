@@ -1,5 +1,5 @@
 import { log } from "./lib/log.ts"
-import { text } from "./lib/utils.ts"
+import { addWorker, text } from "./lib/utils.ts"
 
 import "@xterm/xterm/css/xterm.css"
 import "./main.css"
@@ -35,9 +35,9 @@ const main = async () => {
 
   if(Boolean(params.get("backend-webcrypto"))) {
     for (let thread = 0; thread < Number(params.get("backend-webcrypto-threads") ?? 1); thread++) {
-      log.addWorker(
+      addWorker(
         new WebCryptoBE(),
-        thread,
+        thread.toString(),
         config,
       )
     }

@@ -1,5 +1,7 @@
-import type { LogBase, LogMod } from "@/lib/logBase.ts"
 import { roundAndString } from "@/lib/utils.ts"
+import type { WorkerLog } from "./workerLog.ts"
+import type { Result } from "@/lib/types.ts"
+import type { LogMod } from "@/lib/logBase.ts"
 
 export type Job = {
   last: string
@@ -7,14 +9,10 @@ export type Job = {
   diff: number
 }
 
-export type Result = {
-  result: string,
-  msg: string,
-  hashrate: string,
-}
-
 export class PoolManager {
   log
+  mod
+  thread
 
   username
   rigid
@@ -37,8 +35,10 @@ export class PoolManager {
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
    */
-  constructor(log: LogBase, username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
+  constructor(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
     this.log = log
+    this.mod = mod
+    this.thread = thread
     this.username = username
     this.rigid = rigid || "None"
     this.#miningKey = miningKey || "None"
@@ -63,7 +63,7 @@ export class PoolManager {
     // log.emit("net", `login as ${username}`)
   }
 
-  static async new(log: LogBase, username: string, rigid: string, miningKey: string, noWS: boolean) {
+  static async new(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, noWS: boolean) {
     let useWS = true
     /**
      * @type {WebSocket}
@@ -111,7 +111,7 @@ export class PoolManager {
       }
     }
 
-    const self = new this(log, username, rigid, miningKey, useWS, ws)
+    const self = new this(log, mod, thread, username, rigid, miningKey, useWS, ws)
     return self
   }
 
@@ -215,6 +215,7 @@ export class PoolManager {
     const timeDiff = (new Date().getTime() - this.#startTime) / 1000
     const hashrate = nonce / timeDiff
 
+    const startTime = performance.now()
     let feedback
     if (this.#useWS) {
       feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
@@ -236,12 +237,25 @@ export class PoolManager {
     //this.log.debug("res: "+feedback)
 
     // strip \n
-    const f = feedback.split(",")
+    const f = feedback.replace(/\n$/, "").split(",")
 
-    return {
+    const res: Result = {
       result: f[0],
       msg: f[1] ?? "",
       hashrate: hashrate.toString(),
+      mod: this.mod,
+      thread: this.thread,
+      diff: this.job.diff.toString(),
+      time: (Math.round(performance.now() - startTime)).toString(),
     }
+
+    postMessage({
+      type: "share",
+      res,
+      mod: this.mod,
+      thread: this.thread,
+    })
+
+    return res
   }
 }
