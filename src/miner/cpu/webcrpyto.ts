@@ -1,6 +1,6 @@
 import { text } from "@/lib/text.ts"
-import { PoolManager, type Job } from "./pool.ts"
-import { WorkerLog } from "./workerLog.ts"
+import { PoolManager, type Job } from "../pool.ts"
+import { WorkerLog } from "../workerLog.ts"
 import type { Config } from "@/lib/types.ts"
 
 let pool: PoolManager
@@ -39,7 +39,7 @@ const start = async () => {
   while(true) {
     job = await pool.getJob()
     baseHash = encoder.encode(job.last)
-    targetHash = new Uint8Array(job.target.match(/../g)!.map(hex => parseInt(hex, 16)))
+    targetHash = new Uint8Array(job.target.match(/../g).map(hex => parseInt(hex, 16)))
 
     hashing: for(i = 0; i < job.diff * 100 + 1; i++) {
       nonceArray = encoder.encode(i.toString())

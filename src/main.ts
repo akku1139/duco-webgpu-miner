@@ -5,7 +5,7 @@ import { text } from "./lib/text.ts"
 import "@xterm/xterm/css/xterm.css"
 import "./main.css"
 
-import WebCryptoBE from "./miner/webcrpyto.ts?worker"
+import WebCryptoBE from "./miner/cpu/webcrpyto.ts?worker"
 
 import type { Config } from "./lib/types.ts"
 
