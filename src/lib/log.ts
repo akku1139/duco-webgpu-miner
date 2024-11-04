@@ -17,12 +17,12 @@ class Log extends LogBase {
     this.term.open(termElm)
     fitAddon.fit()
 
-    window.addEventListener("resize", () => {
+    addEventListener("resize", () => {
       fitAddon.fit()
     })
   }
 
-  write(msg: string) {
+  public write(msg: string) {
     // Console Escapesequence seem to be only supportd in Chromium lol
     // https://bugzilla.mozilla.org/show_bug.cgi?id=1720116
     console.log(msg)

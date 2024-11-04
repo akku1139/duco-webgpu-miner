@@ -19,45 +19,65 @@ const main = async () => {
     noWS: Boolean(params.get("nows") ?? false),
   }
 
-  log.welcome("CPU", Boolean(params.get("cpu"))
-    ? `${params.get("cpu-threads")} threads`
-    : text.color("disabled", "red")
+  log.welcome(
+    "CPU",
+    params.get("cpu")
+      ? `${params.get("cpu-threads")} threads`
+      : text.color("disabled", "red"),
   )
 
   const adapter = await navigator.gpu?.requestAdapter()
   const device = await adapter?.requestDevice()
 
-  log.welcome("WebGPU", device
-    ? text.color("Enabled", "green")
-    : text.color("No device found", "red")
+  log.welcome(
+    "WebGPU",
+    device
+      ? text.color("Enabled", "green")
+      : text.color("No device found", "red"),
   )
 
-  if(params.get("username") === null) {
+  if (params.get("username") === null) {
     log.emit("sys", "username is not set. login as `akku`")
     log.emit("sys", "Configure miner: https://duco-webgpu.pages.dev/config")
   }
 
-  if(Boolean(params.get("cpu"))) {
+  if (params.get("cpu")) {
     let cpuWorker: Worker
-    switch(params.get("cpu-backend")) {
+    switch (params.get("cpu-backend")) {
       case "webcrypto":
-        cpuWorker = new Worker(new URL("./miner/cpu/webcrpyto.ts", import.meta.url), {
-          type: 'module'
-        })
+        cpuWorker = new Worker(
+          new URL("./miner/cpu/webcrpyto.ts", import.meta.url),
+          {
+            type: "module",
+          },
+        )
         break
       case "asmjs":
-        cpuWorker = new Worker(new URL("./miner/cpu/asmjs.ts", import.meta.url), {
-          type: 'module'
-        })
+        cpuWorker = new Worker(
+          new URL("./miner/cpu/asmjs.ts", import.meta.url),
+          {
+            type: "module",
+          },
+        )
         break
       case "js-sha1":
-        cpuWorker = new Worker(new URL("./miner/cpu/js-sha1.ts", import.meta.url), {
-          type: 'module'
-        })
+        cpuWorker = new Worker(
+          new URL("./miner/cpu/js-sha1.ts", import.meta.url),
+          {
+            type: "module",
+          },
+        )
         break
+      default:
+        log.emit("sys", "Unknown CPU backend")
+        return
     }
 
-    for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
+    for (
+      let thread = 0, threads = Number(params.get("cpu-threads") ?? 1);
+      thread < threads;
+      thread++
+    ) {
       addWorker(
         cpuWorker,
         thread.toString(),

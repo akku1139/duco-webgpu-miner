@@ -2,12 +2,14 @@ import { text } from "./text.ts"
 
 // bad type
 const mod = {
-  debug:  ["none", "none"],
-  net:    ["white", "blue"],
-  sys:    ["white", "yellow"],
-  cpu:    ["white", "green"],
-  gpu:    ["white", "magenta"],
-} as const satisfies {[key: string]: [keyof typeof text.fg, keyof typeof text.bg]}
+  debug: ["none", "none"],
+  net: ["white", "blue"],
+  sys: ["white", "yellow"],
+  cpu: ["white", "green"],
+  gpu: ["white", "magenta"],
+} as const satisfies {
+  [key: string]: [keyof typeof text.fg, keyof typeof text.bg]
+}
 
 export type LogMod = keyof typeof mod
 
@@ -27,22 +29,47 @@ export abstract class LogBase {
 
   abstract write(msg: string): void
 
-  time(msg: string) {
+  public time(msg: string) {
     const now = new Date()
-    const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
+    const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${
+      now.getMonth().toString().padStart(2, "0")
+    }-${now.getDate().toString().padStart(2, "0")} ${
+      now.getHours().toString().padStart(2, "0")
+    }:${now.getMinutes().toString().padStart(2, "0")}:${
+      now.getSeconds().toString().padStart(2, "0")
+    }.${text.style.faint}${
+      now.getMilliseconds().toString().padStart(3, "0")
+    }${text.reset}]`
     this.write(`${ts} ${msg}`)
   }
 
-  emit(module: LogMod, msg: string, suffix: string | undefined = void 0) {
+  public emit(
+    module: LogMod,
+    msg: string,
+    suffix: string | undefined = void 0,
+  ) {
     const modData = mod[module]
-    this.time(`${text.color(text.style.bold+" "+(module+(suffix ?? this.suffix)).padEnd(8, " "), modData[0], modData[1])} ${msg}`)
+    this.time(
+      `${
+        text.color(
+          text.style.bold + " " +
+            (module + (suffix ?? this.suffix)).padEnd(8, " "),
+          modData[0],
+          modData[1],
+        )
+      } ${msg}`,
+    )
   }
 
-  welcome(mod: string, msg: string) {
-    this.write(` ${text.color("*", "green")} ${text.style.bold + mod.toUpperCase().padEnd(12, " ")} ${msg}`)
+  public welcome(mod: string, msg: string) {
+    this.write(
+      ` ${text.color("*", "green")} ${
+        text.style.bold + mod.toUpperCase().padEnd(12, " ")
+      } ${msg}`,
+    )
   }
 
-  debug(msg: string) {
+  public debug(msg: string) {
     this.emit("debug", msg)
   }
 }
