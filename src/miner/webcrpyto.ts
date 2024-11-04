@@ -24,6 +24,7 @@ addEventListener("message", async (e) => {
 const start = async () => {
   let job: Job
   let baseHash: Uint8Array
+  let targetHash: Uint8Array
   let newData: Uint8Array
   let nonceArray: Uint8Array
 
@@ -36,7 +37,8 @@ const start = async () => {
 
   while(true) {
     job = await pool.getJob()
-    baseHash = new Uint8Array(job.last.match(/.{1,2}/g)!.map(hex => parseInt(hex, 16)))
+    baseHash = encoder.encode(job.last)
+    targetHash = new Uint8Array(job.target.match(/../g)!.map(hex => parseInt(hex, 16)))
     for(i = 0; i < job.diff * 100 + 1; i++) {
       nonceArray = encoder.encode(i.toString())
 
@@ -46,7 +48,7 @@ const start = async () => {
 
       hash = new Uint8Array(await crypto.subtle.digest("SHA-1", newData))
 
-      if(baseHash.every((value, index) => value === hash[index])) {
+      if(targetHash.every((value, index) => value === hash[index])) {
         await pool.sendShare(i)
         break
       }
