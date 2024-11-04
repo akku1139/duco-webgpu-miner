@@ -7,7 +7,7 @@ import { LogBase } from "@/lib/logBase.ts"
  * [2024-10-30 23:28:07.730]  miner    speed 10s/60s/15m 1986.0 1943.3 1952.7 H/s max 2384.1 H/s
  * https://github.com/xmrig/xmrig/blob/master/src/base/io/log/Log.cpp
  */
-export class WorkerLog extends LogBase{
+export class WorkerLog extends LogBase {
   constructor(suffix: string) {
     super(suffix)
   }
@@ -15,7 +15,7 @@ export class WorkerLog extends LogBase{
   write(msg: string) {
     postMessage({
       type: "log",
-      msg
+      msg,
     })
   }
 }

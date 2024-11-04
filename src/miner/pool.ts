@@ -10,20 +10,13 @@ export type Job = {
 }
 
 export class PoolManager {
-  log
-  mod
-  thread
-
-  username
-  rigid
-
   job: Job
 
-  #httpURL
-  #useWS
-  #ws
-  #baseDiff
-  #miningKey
+  #httpURL: string
+  #baseDiff: string
+  #miningKey: string
+  #useWS: boolean
+  #ws: WebSocket | undefined
 
   #startTime: number = 0
   #threadID: number
@@ -35,18 +28,22 @@ export class PoolManager {
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
    */
-  constructor(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
-    this.log = log
-    this.mod = mod
-    this.thread = thread
-    this.username = username
-    this.rigid = rigid || "None"
-    this.#miningKey = miningKey || "None"
+  constructor(
+    public log: WorkerLog,
+    public mod: LogMod,
+    public thread: string,
+    public username: string,
+    public rigid: string = "None",
+    miningKey: string = "None",
+    useWS: boolean,
+    ws: WebSocket | undefined,
+  ) {
+    this.#miningKey = miningKey
     this.#useWS = useWS
     this.#ws = ws
     this.#baseDiff = "LOW"
 
-    this.#threadID = Math.floor(Math.random() * 10000)
+    this.#threadID = crypto.getRandomValues(new Uint16Array(1))[0]
 
     this.job = {
       last: "dummy",
@@ -63,23 +60,29 @@ export class PoolManager {
     // log.emit("net", `login as ${username}`)
   }
 
-  static async new(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, noWS: boolean) {
+  static async new(
+    log: WorkerLog,
+    mod: LogMod,
+    thread: string,
+    username: string,
+    rigid: string,
+    miningKey: string,
+    noWS: boolean,
+  ) {
     let useWS = true
     /**
      * @type {WebSocket}
      */
-    let ws: WebSocket
+    let ws: WebSocket | undefined
     if (noWS) {
       useWS = false
-      //@ts-ignore
       ws = void 0
-    } else if (typeof globalThis.WebSocket === void 0) {
+    } else if (globalThis.WebSocket === undefined) {
       useWS = false
-      //@ts-ignore
       ws = void 0
       // log.emit("net", "Your browser is not support WebSocket. Use legacy job protocol.")
     } else {
-      let wsURL = "wss://magi.duinocoin.com:8443/"
+      const wsURL = "wss://magi.duinocoin.com:8443/"
 
       // These servers are no longer active
       // https://github.com/VatsaDev/Mineuino/blob/main/miner.js#L19
@@ -89,7 +92,7 @@ export class PoolManager {
       //   wsURL = "wss://server.duinocoin.com:15808"
       // }
 
-      ws = new WebSocket(wsURL)
+      const ws = new WebSocket(wsURL)
 
       // https://github.com/XelyNetwork/SpaceUnicorn/blob/main/src/client.ts#L45
       const isSuccess = await new Promise((resolve) => {
@@ -111,12 +114,27 @@ export class PoolManager {
       }
     }
 
-    const self = new this(log, mod, thread, username, rigid, miningKey, useWS, ws)
+    const self = new this(
+      log,
+      mod,
+      thread,
+      username,
+      rigid,
+      miningKey,
+      useWS,
+      ws,
+    )
+
     return self
   }
 
-  async #waitWS(msg: string): Promise<string> {
-    return new Promise((resolve) => {
+  #waitWS(msg: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!this.#ws) {
+        reject("No WebSocket")
+        return
+      }
+
       this.#ws.onmessage = (event) => {
         resolve(event.data)
       }
@@ -124,11 +142,17 @@ export class PoolManager {
     })
   }
 
-  async #sendHTTP(method: string, path: string, params: {[key: string]: string}) {
-    const url = new URL(`${path}?${new URLSearchParams(params).toString()
-      }`, this.#httpURL)
+  async #sendHTTP(
+    method: string,
+    path: string,
+    params: { [key: string]: string },
+  ) {
+    const url = new URL(
+      `${path}?${new URLSearchParams(params).toString()}`,
+      this.#httpURL,
+    )
     return await fetch(url, {
-      method
+      method,
     })
   }
 
@@ -147,19 +171,21 @@ export class PoolManager {
     */
     let res: string
     if (this.#useWS) {
-      res = await this.#waitWS(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
+      res = await this.#waitWS(
+        `JOB,${this.username},${this.#baseDiff},${this.#miningKey}`,
+      )
     } else {
       const now = new Date()
       res = await (await this.#sendHTTP("get", "/legacy_job", {
         u: this.username,
         i: navigator.userAgent,
-        nocache: now.getTime().toString()
+        nocache: now.getTime().toString(),
       })).text()
     }
 
     this.#startTime = new Date().getTime()
 
-    const data  = res.split(",")
+    const data = res.split(",")
     this.job = {
       last: data[0],
       target: data[1],
@@ -218,7 +244,9 @@ export class PoolManager {
     const sendStartTime = performance.now()
     let feedback
     if (this.#useWS) {
-      feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
+      feedback = await this.#waitWS(
+        `${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`,
+      )
     } else {
       feedback = await (await this.#sendHTTP("post", "/legacy_job", {
         u: this.username,
