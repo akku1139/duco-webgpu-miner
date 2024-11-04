@@ -1,4 +1,4 @@
-import { text } from "@/lib/utils.ts"
+import { text } from "@/lib/text.ts"
 import { PoolManager, type Job } from "./pool.ts"
 import { WorkerLog } from "./workerLog.ts"
 import type { Config, Result } from "@/lib/types.ts"

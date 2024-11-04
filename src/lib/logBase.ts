@@ -1,4 +1,4 @@
-import { text } from "./utils.ts"
+import { text } from "./text.ts"
 
 // bad type
 const mod = {

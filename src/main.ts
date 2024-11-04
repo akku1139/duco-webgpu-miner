@@ -1,5 +1,6 @@
 import { log } from "./lib/log.ts"
-import { addWorker, text } from "./lib/utils.ts"
+import { addWorker } from "./lib/worker.ts"
+import { text } from "./lib/text.ts"
 
 import "@xterm/xterm/css/xterm.css"
 import "./main.css"
