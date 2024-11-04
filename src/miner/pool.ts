@@ -215,12 +215,11 @@ export class PoolManager {
     const timeDiff = (new Date().getTime() - this.#startTime) / 1000
     const hashrate = nonce / timeDiff
 
-    const startTime = performance.now()
+    const sendStartTime = performance.now()
     let feedback
     if (this.#useWS) {
       feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
     } else {
-      const now = new Date()
       feedback = await (await this.#sendHTTP("post", "/legacy_job", {
         u: this.username,
         r: nonce.toString(),
@@ -230,11 +229,9 @@ export class PoolManager {
         i: navigator.userAgent,
         h: hashrate.toString(),
         b: roundAndString(timeDiff, 2),
-        nocache: now.getTime().toString(),
+        nocache: sendStartTime.toString(),
       })).text()
     }
-
-    //this.log.debug("res: "+feedback)
 
     // strip \n
     const f = feedback.replace(/\n$/, "").split(",")
@@ -246,7 +243,7 @@ export class PoolManager {
       mod: this.mod,
       thread: this.thread,
       diff: this.job.diff.toString(),
-      time: (Math.round(performance.now() - startTime)).toString(),
+      time: (Math.round(performance.now() - sendStartTime)).toString(),
     }
 
     postMessage({
