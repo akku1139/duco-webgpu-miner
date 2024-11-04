@@ -11,6 +11,10 @@ https://github.com/revoxhere/duco-webservices/blob/master/js/webminer/worker.js
 
 https://server.duinocoin.com/js/webminer/worker.js?v=3
 
+## TODOs
+
+- hashrate
+
 ## WebSocket Job Protocol
 
 ### Recv

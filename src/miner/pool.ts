@@ -245,7 +245,7 @@ export class PoolManager {
       hashrate: hashrate.toString(),
       mod: this.mod,
       thread: this.thread,
-      diff: this.job.diff.toString(),
+      diff: this.job.diff.toString() + "H/s",
       time: (Math.round(performance.now() - startTime)).toString(),
     }
 

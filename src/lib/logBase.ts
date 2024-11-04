@@ -27,11 +27,15 @@ export abstract class LogBase {
 
   abstract write(msg: string): void
 
-  emit(module: LogMod, msg: string, suffix: string | undefined = void 0) {
+  time(msg: string) {
     const now = new Date()
-    const modData = mod[module]
     const ts = `[${now.getFullYear().toString().padStart(4, "0")}-${now.getMonth().toString().padStart(2, "0")}-${now.getDate().toString().padStart(2, "0")} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}.${text.style.faint}${now.getMilliseconds().toString().padStart(3, "0")}${text.reset}]`
-    this.write(`${ts} ${text.color(text.style.bold+" "+(module+(suffix ?? this.suffix)).padEnd(8, " "), modData[0], modData[1])} ${msg}`)
+    this.write(`${ts} ${msg}`)
+  }
+
+  emit(module: LogMod, msg: string, suffix: string | undefined = void 0) {
+    const modData = mod[module]
+    this.time(`${text.color(text.style.bold+" "+(module+(suffix ?? this.suffix)).padEnd(8, " "), modData[0], modData[1])} ${msg}`)
   }
 
   welcome(mod: string, msg: string) {

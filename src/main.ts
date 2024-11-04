@@ -34,6 +34,11 @@ const main = async () => {
     : text.color("No device found", "red")
   )
 
+  if(params.get("username") === null) {
+    log.emit("sys", "username is not set. login as `akku`")
+    log.emit("sys", "Configure miner: https://duco-webgpu.pages.dev/config")
+  }
+
   if(Boolean(params.get("backend-webcrypto"))) {
     for (let thread = 0; thread < Number(params.get("backend-webcrypto-threads") ?? 1); thread++) {
       addWorker(
@@ -42,11 +47,6 @@ const main = async () => {
         config,
       )
     }
-  }
-
-  if(params.get("username") === null) {
-    log.emit("sys", "username is not set. login as `akku`")
-    log.emit("sys", "Configure miner: https://duco-webgpu.pages.dev/config")
   }
 }
 
