@@ -51,7 +51,7 @@ const start = async () => {
       hash = new Uint8Array(await crypto.subtle.digest("SHA-1", newData))
 
       for(j = 0; j < 20; j++) {
-        if(baseHash[j] !== hash[j]) {
+        if(targetHash[j] !== hash[j]) {
           continue hashing
         }
       }
