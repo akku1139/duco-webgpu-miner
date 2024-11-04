@@ -5,8 +5,6 @@ import { text } from "./lib/text.ts"
 import "@xterm/xterm/css/xterm.css"
 import "./main.css"
 
-import WebCryptoBE from "./miner/cpu/webcrpyto.ts?worker"
-
 import type { Config } from "./lib/types.ts"
 
 const main = async () => {
@@ -40,16 +38,23 @@ const main = async () => {
   }
 
   if(Boolean(params.get("cpu"))) {
-    let cpuWorker
+    let cpuWorker: Worker
     switch(params.get("cpu-backend")) {
       case "webcrypto":
-        cpuWorker = WebCryptoBE
+        cpuWorker = new Worker(new URL("./miner/cpu/webcrpyto.ts", import.meta.url), {
+          type: 'module'
+        })
+        break
+      case "asmjs":
+        cpuWorker = new Worker(new URL("./miner/cpu/asmjs.ts", import.meta.url), {
+          type: 'module'
+        })
         break
     }
 
     for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
       addWorker(
-        new cpuWorker(),
+        cpuWorker,
         thread.toString(),
         config,
       )
