@@ -30,13 +30,16 @@ const start = async () => {
   let hash: Array<number>
 
   let i: number
+  let realDiff: number
   let j: number
 
   while(true) {
     job = await pool.getJob()
     targetHash = new Uint8Array(job.target.match(/../g).map(hex => parseInt(hex, 16)))
 
-    hashing: for(i = 0; i < job.diff * 100 + 1; i++) {
+    i = 0
+    realDiff = job.diff * 100 + 1
+    hashing: for(; i < realDiff; i++) {
       hash = sha1.array(job.last + i.toString())
 
       for(j = 0; j < 20; j++) {

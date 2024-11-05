@@ -34,6 +34,7 @@ const start = async () => {
   const encoder = new TextEncoder()
 
   let i: number
+  let realDiff: number
   let j: number
 
   while(true) {
@@ -41,7 +42,9 @@ const start = async () => {
     baseHash = encoder.encode(job.last)
     targetHash = new Uint8Array(job.target.match(/../g).map(hex => parseInt(hex, 16)))
 
-    hashing: for(i = 0; i < job.diff * 100 + 1; i++) {
+    i = 0
+    realDiff = job.diff * 100 + 1
+    hashing: for(; i < realDiff; i++) {
       nonceArray = encoder.encode(i.toString())
 
       newData = new Uint8Array(baseHash.length + nonceArray.length)
