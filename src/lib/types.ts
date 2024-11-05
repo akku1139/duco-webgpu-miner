@@ -10,9 +10,9 @@ export type Config = {
 export type Result = {
   result: "GOOD" | "BAD" | string | "BLOCK",
   msg: string,
-  hashrate: string,
+  hashrate: number,
   mod: LogMod,
   thread: string,
-  diff: string,
+  diff: number,
   time: string,
 }

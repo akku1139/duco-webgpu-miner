@@ -1,6 +1,7 @@
 import { text } from "./text.ts"
 import { log } from "./log.ts"
 import type { Config, Result } from "./types.ts"
+import { addSIPrefix, roundAndString } from "./utils.ts"
 
 const shareCount = {
   all: 0,
@@ -23,14 +24,16 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
       case "share":
         shareCount.all ++
         const res: Result = e.data.res
+        const hashrate = addSIPrefix(Number(roundAndString(res.hashrate, 1)), " ") + "H/s"
+        const diff = addSIPrefix(res.diff)
         switch(res.result) {
           case "GOOD":
             shareCount.accept ++
             log.emit(res.mod,
               text.color(text.style.bold + "accepted", "green")
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
-              + text.style.bold + res.diff + text.reset
-              + " hashrate " + text.color(text.style.bold + res.hashrate, "syan")
+              + text.style.bold + diff + text.reset
+              + " hashrate " + text.color(text.style.bold + hashrate, "syan")
               + text.style.faint + " (" + res.time + " ms)" + text.reset,
               res.thread
             )
@@ -41,8 +44,8 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
             log.emit(res.mod,
               text.color(text.style.bold + "accepted (Block found!)", "green")
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
-              + text.style.bold + res.diff + text.reset
-              + " hashrate " + text.color(text.style.bold + res.hashrate, "syan")
+              + text.style.bold + diff + text.reset
+              + " hashrate " + text.color(text.style.bold + hashrate, "syan")
               + text.style.faint + " (" + res.time + " ms)" + text.reset,
               res.thread
             )
@@ -52,9 +55,9 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
             log.emit(res.mod,
               text.color(text.style.bold + "rejected", "red")
               + ` (${shareCount.accept}/${shareCount.reject}) diff `
-              + text.style.bold + res.diff + text.reset
+              + text.style.bold + diff + text.reset
               + text.color(` "${res.msg}"`, "red")
-              + " hashrate " + text.color(text.style.bold + res.hashrate, "syan")
+              + " hashrate " + text.color(text.style.bold + hashrate, "syan")
               + text.style.faint + " (" + res.time + " ms)" + text.reset,
               res.thread
             )

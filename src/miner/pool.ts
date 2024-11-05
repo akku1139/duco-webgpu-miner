@@ -239,10 +239,10 @@ export class PoolManager {
     const res: Result = {
       result: f[0],
       msg: f[1] ?? "",
-      hashrate: roundAndString(hashrate, 1) + " H/s",
+      hashrate,
       mod: this.mod,
       thread: this.thread,
-      diff: this.job.diff.toString(),
+      diff: this.job.diff,
       time: (Math.round(performance.now() - sendStartTime)).toString(),
     }
 
