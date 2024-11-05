@@ -1669,13 +1669,13 @@ interface GPUBindingCommandsMixin {
    * Sets the current {@link GPUBindGroup} for the given index.
    * @param index - The index to set the bind group at.
    * @param bindGroup - Bind group to use for subsequent render or compute commands.
-   * 	<!--The overload appears to be confusing bikeshed, and it ends up expecting this to
-   * 	define the arguments for the 5-arg variant of the method, despite the "for"
-   * 	explicitly pointing at the 3-arg variant. See
+   *   <!--The overload appears to be confusing bikeshed, and it ends up expecting this to
+   *   define the arguments for the 5-arg variant of the method, despite the "for"
+   *   explicitly pointing at the 3-arg variant. See
    * @param https - //github.com/plinss/widlparser/issues/56 and
    * @param https - //github.com/tabatkins/bikeshed/issues/1740 -->
    * @param dynamicOffsets - Array containing buffer offsets in bytes for each entry in
-   * 	`bindGroup` marked as {@link GPUBindGroupLayoutEntry#buffer}.{@link GPUBufferBindingLayout#hasDynamicOffset}.-->
+   *   `bindGroup` marked as {@link GPUBindGroupLayoutEntry#buffer}.{@link GPUBufferBindingLayout#hasDynamicOffset}.-->
    */
   setBindGroup(
     index: GPUIndex32,
@@ -1688,9 +1688,9 @@ interface GPUBindingCommandsMixin {
    * @param index - The index to set the bind group at.
    * @param bindGroup - Bind group to use for subsequent render or compute commands.
    * @param dynamicOffsetsData - Array containing buffer offsets in bytes for each entry in
-   * 	`bindGroup` marked as {@link GPUBindGroupLayoutEntry#buffer}.{@link GPUBufferBindingLayout#hasDynamicOffset}.
+   *   `bindGroup` marked as {@link GPUBindGroupLayoutEntry#buffer}.{@link GPUBufferBindingLayout#hasDynamicOffset}.
    * @param dynamicOffsetsDataStart - Offset in elements into `dynamicOffsetsData` where the
-   * 	buffer offset data begins.
+   *   buffer offset data begins.
    * @param dynamicOffsetsDataLength - Number of buffer offsets to read from `dynamicOffsetsData`.
    */
   setBindGroup(
@@ -1734,7 +1734,7 @@ interface GPUPipelineBase {
    * Gets a {@link GPUBindGroupLayout} that is compatible with the {@link GPUPipelineBase}'s
    * {@link GPUBindGroupLayout} at `index`.
    * @param index - Index into the pipeline layout's {@link GPUPipelineLayout#[[bindGroupLayouts]]}
-   * 	sequence.
+   *   sequence.
    */
   getBindGroupLayout(
     index: number
@@ -1755,7 +1755,7 @@ interface GPURenderCommandsMixin {
    * @param indexFormat - Format of the index data contained in `buffer`.
    * @param offset - Offset in bytes into `buffer` where the index data begins. Defaults to `0`.
    * @param size - Size in bytes of the index data in `buffer`.
-   * 	Defaults to the size of the buffer minus the offset.
+   *   Defaults to the size of the buffer minus the offset.
    */
   setIndexBuffer(
     buffer: GPUBuffer,
@@ -1769,7 +1769,7 @@ interface GPURenderCommandsMixin {
    * @param buffer - Buffer containing vertex data to use for subsequent drawing commands.
    * @param offset - Offset in bytes into `buffer` where the vertex data begins. Defaults to `0`.
    * @param size - Size in bytes of the vertex data in `buffer`.
-   * 	Defaults to the size of the buffer minus the offset.
+   *   Defaults to the size of the buffer minus the offset.
    */
   setVertexBuffer(
     slot: GPUIndex32,
@@ -2153,7 +2153,7 @@ interface GPUCommandEncoder
    * {@link GPUBuffer} to a sub-region of one or multiple continuous texture subresources.
    * @param source - Combined with `copySize`, defines the region of the source buffer.
    * @param destination - Combined with `copySize`, defines the region of the destination texture subresource.
-   * 	`copySize`:
+   *   `copySize`:
    */
   copyBufferToTexture(
     source: GPUImageCopyBuffer,
@@ -2165,7 +2165,7 @@ interface GPUCommandEncoder
    * multiple continuous texture subresources to a sub-region of a {@link GPUBuffer}.
    * @param source - Combined with `copySize`, defines the region of the source texture subresources.
    * @param destination - Combined with `copySize`, defines the region of the destination buffer.
-   * 	`copySize`:
+   *   `copySize`:
    */
   copyTextureToBuffer(
     source: GPUImageCopyTexture,
@@ -2178,7 +2178,7 @@ interface GPUCommandEncoder
    * multiple continuous texture subresources.
    * @param source - Combined with `copySize`, defines the region of the source texture subresources.
    * @param destination - Combined with `copySize`, defines the region of the destination texture subresources.
-   * 	`copySize`:
+   *   `copySize`:
    */
   copyTextureToTexture(
     source: GPUImageCopyTexture,
@@ -2199,11 +2199,11 @@ interface GPUCommandEncoder
   ): undefined;
   /**
    * Resolves query results from a {@link GPUQuerySet} out into a range of a {@link GPUBuffer}.
-   * 	querySet:
-   * 	firstQuery:
-   * 	queryCount:
-   * 	destination:
-   * 	destinationOffset:
+   *   querySet:
+   *   firstQuery:
+   *   queryCount:
+   *   destination:
+   *   destinationOffset:
    */
   resolveQuerySet(
     querySet: GPUQuerySet,
@@ -2214,7 +2214,7 @@ interface GPUCommandEncoder
   ): undefined;
   /**
    * Completes recording of the commands sequence and returns a corresponding {@link GPUCommandBuffer}.
-   * 	descriptor:
+   *   descriptor:
    */
   finish(
     descriptor?: GPUCommandBufferDescriptor
@@ -2728,7 +2728,7 @@ interface GPUQueue
   /**
    * Schedules the execution of the command buffers by the GPU on this queue.
    * Submitted command buffers cannot be used again.
-   * 	`commandBuffers`:
+   *   `commandBuffers`:
    */
   submit(
     commandBuffers: Iterable<GPUCommandBuffer>
@@ -2747,9 +2747,9 @@ interface GPUQueue
    * @param bufferOffset - Offset in bytes into `buffer` to begin writing at.
    * @param data - Data to write into `buffer`.
    * @param dataOffset - Offset in into `data` to begin writing from. Given in elements if
-   * 	`data` is a `TypedArray` and bytes otherwise.
+   *   `data` is a `TypedArray` and bytes otherwise.
    * @param size - Size of content to write from `data` to `buffer`. Given in elements if
-   * 	`data` is a `TypedArray` and bytes otherwise.
+   *   `data` is a `TypedArray` and bytes otherwise.
    */
   writeBuffer(
     buffer: GPUBuffer,
@@ -2830,7 +2830,7 @@ interface GPURenderBundleEncoder
   readonly __brand: "GPURenderBundleEncoder";
   /**
    * Completes recording of the render bundle commands sequence.
-   * 	descriptor:
+   *   descriptor:
    */
   finish(
     descriptor?: GPURenderBundleDescriptor
