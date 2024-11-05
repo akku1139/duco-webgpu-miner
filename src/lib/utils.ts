@@ -16,5 +16,5 @@ export const addSIPrefix = (value: number, space: string = ""): string => {
     return (value / 1000).toString() + space + "K"
   }
 
-  return value.toString()
+  return value.toString() + space
 }
