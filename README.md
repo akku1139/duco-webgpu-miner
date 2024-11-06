@@ -13,6 +13,8 @@ https://github.com/revoxhere/duco-webservices/blob/master/js/webminer/worker.js
 
 https://server.duinocoin.com/js/webminer/worker.js?v=3
 
+https://github.com/revoxhere/duino-coin/blob/master/Arduino_Code/duco_hash.cpp
+
 ### WebGPU
 
 https://qiita.com/metaphysical_bard/items/db74484d631038bb7ae1
@@ -21,6 +23,11 @@ https://qiita.com/metaphysical_bard/items/db74484d631038bb7ae1
 
 https://ukyo.github.io/wasm-usui-book/webroot/get-started-webassembly.html
 
+https://zenn.dev/itte/articles/57021ace128fff
+
+### Others
+
+https://github.com/mys1024/vite-plugin-wat
 
 ## TODOs
 
