@@ -14,6 +14,7 @@
     "@xterm/xterm": "^5.5.0",
     "js-sha1": "^0.7.0",
     "typescript": "~5.6.2",
-    "vite": "^5.4.10"
+    "vite": "^5.4.10",
+    "vite-plugin-wat": "^1.0.2"
   }
 }

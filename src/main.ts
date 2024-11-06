@@ -55,6 +55,11 @@ const main = async () => {
           type: 'module'
         })
         break
+      case "wasm":
+          cpuWorker = new Worker(new URL("./miner/cpu/wasm.ts", import.meta.url), {
+            type: 'module'
+          })
+          break
     }
 
     for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
