@@ -13,7 +13,11 @@ https://github.com/revoxhere/duco-webservices/blob/master/js/webminer/worker.js
 
 https://server.duinocoin.com/js/webminer/worker.js?v=3
 
+### SHA-1
+
 https://github.com/revoxhere/duino-coin/blob/master/Arduino_Code/duco_hash.cpp
+
+https://github.com/fatestudio/sha1/blob/master/sha1-fast.c
 
 ### WebGPU
 
