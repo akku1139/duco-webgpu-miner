@@ -51,7 +51,16 @@ const start = async () => {
   })
 
   let job: Job
-  let hashHex: string = ""
+  let baseHash: Uint8Array
+  let targetHash: Uint8Array
+  let diff
+
+  device.createBuffer({
+    size: baseHash.length,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+  })
+
+  const encoder = new TextEncoder()
 
   let i: number = 0
 
