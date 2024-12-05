@@ -3,7 +3,7 @@ import { PoolManager, type Job } from "../pool.ts"
 import { WorkerLog } from "../workerLog.ts"
 import type { Config } from "@/lib/types.ts"
 
-import ducos1Shader from "./shaders/ducos1.wgsl?raw"
+import ducos1Shader from "./shaders/fastAVR.wgsl?raw"
 
 let pool: PoolManager
 
