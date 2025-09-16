@@ -1,4 +1,4 @@
-// https://github.com/revoxhere/duino-coin/blob/e91dc42e75b4a16b40d24f0d3d0e747a4746cad1/Arduino_Code/duco_hash.cpp
+// https://github.com/revoxhere/duino-coin/blob/4ad3c657bc59553b76246afd39d3d02c9fc9ea42/Arduino_Code/duco_hash.cpp
 /*
 MIT License
 
@@ -102,9 +102,7 @@ void duco_hash_block(duco_hash_state_t * hasher) {
 }
 
 void duco_hash_init(duco_hash_state_t * hasher, char const * prevHash) {
-	for (uint8_t i = 0; i < 40; i++) {
-		hasher->buffer[i] = prevHash[i];
-	}
+	memcpy(hasher->buffer, prevHash, 40);
 
 	if (prevHash == (void*)(0xffffffff)) {
 		// NOTE: THIS IS NEVER CALLED
