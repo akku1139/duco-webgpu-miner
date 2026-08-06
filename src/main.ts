@@ -45,11 +45,6 @@ const main = async () => {
           type: 'module'
         })
         break
-      case "asmjs":
-        cpuWorker = new Worker(new URL("./miner/cpu/asmjs.ts", import.meta.url), {
-          type: 'module'
-        })
-        break
       case "js-sha1":
         cpuWorker = new Worker(new URL("./miner/cpu/js-sha1.ts", import.meta.url), {
           type: 'module'
