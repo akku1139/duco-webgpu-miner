@@ -24,7 +24,8 @@ export const addWorker = (worker: Worker, thread: string, config: Config) => {
       case "share":
         shareCount.all ++
         const res: Result = e.data.res
-        const hashrate = addSIPrefix(Number(roundAndString(res.hashrate, 1)), " ") + "H/s"
+        const hashrate = addSIPrefix(res.hashrate, " ") + "H/s"
+
         const diff = addSIPrefix(res.diff)
         switch(res.result) {
           case "GOOD":

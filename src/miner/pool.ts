@@ -117,9 +117,11 @@ export class PoolManager {
 
   async #waitWS(msg: string): Promise<string> {
     return new Promise((resolve) => {
-      this.#ws.onmessage = (event) => {
+      const handler = (event: MessageEvent) => {
+        this.#ws.removeEventListener("message", handler)
         resolve(event.data)
       }
+      this.#ws.addEventListener("message", handler)
       this.#ws.send(msg)
     })
   }
@@ -217,7 +219,11 @@ export class PoolManager {
 
     const sendStartTime = performance.now()
     let feedback
+    try {
     if (this.#useWS) {
+      if (this.#ws.readyState !== WebSocket.OPEN) {
+        this.log.emit(this.mod, `WebSocket not open: readyState=${this.#ws.readyState}`)
+      }
       feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
     } else {
       feedback = await (await this.#sendHTTP("post", "/legacy_job", {
@@ -231,6 +237,21 @@ export class PoolManager {
         b: roundAndString(timeDiff, 2),
         nocache: sendStartTime.toString(),
       })).text()
+    }
+
+    } catch (err) {
+      this.log.emit(this.mod, `sendShare error: ${err}`)
+      const res: Result = {
+        result: "ERROR",
+        msg: String(err),
+        hashrate,
+        mod: this.mod,
+        thread: this.thread,
+        diff: this.job.diff,
+        time: "0",
+      }
+      postMessage({ type: "share", res })
+      return res
     }
 
     // strip \n

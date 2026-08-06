@@ -35,7 +35,11 @@ export abstract class LogBase {
 
   emit(module: LogMod, msg: string, suffix: string | undefined = void 0) {
     const modData = mod[module]
-    this.time(`${text.color(text.style.bold+" "+(module+(suffix ?? this.suffix)).padEnd(8, " "), modData[0], modData[1])} ${msg}`)
+    // Use suffix if provided, otherwise use this.suffix
+    const effectiveSuffix = suffix !== undefined ? suffix : this.suffix
+    const displayName = module + (effectiveSuffix || "")
+    console.log(`DEBUG emit: module="${module}", suffix="${suffix}", this.suffix="${this.suffix}", effectiveSuffix="${effectiveSuffix}", displayName="${displayName}"`)
+    this.time(`${text.color(text.style.bold+" "+displayName.padEnd(8, " "), modData[0], modData[1])} ${msg}`)
   }
 
   welcome(mod: string, msg: string) {

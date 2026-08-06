@@ -10,11 +10,9 @@ let pool: PoolManager
 let log: WorkerLog
 const mod = "gpu"
 
-// Nonces processed per dispatch, and dispatches submitted per readback.
+// Optimization settings
 const WORKGROUP_SIZE = 256
-const BATCH = 1 << 20
-const DISPATCHES = 4
-
+const BATCH = 1 << 20          // 1M nonces per batch (debugging)
 const NOT_FOUND = 0xFFFFFFFF
 
 addEventListener("message", async (e) => {
@@ -22,10 +20,10 @@ addEventListener("message", async (e) => {
     const c: Config = e.data.config
     const thread: string = e.data.thread
     pool = await PoolManager.new(
-      log, mod, thread, c.username, c.rigID + " (GPU)", c.miningKey, c.noWS,
+      log, mod, "", c.username, c.rigID + " (GPU)", c.miningKey, c.noWS,
       c.baseDiff,
     )
-    log = new WorkerLog(thread)
+    log = new WorkerLog("")
     log.emit(mod, "Starting")
     start()
   }
@@ -71,32 +69,16 @@ const start = async () => {
     compute: { module: shaderModule, entryPoint: "main" },
   })
 
+  // Persistent buffers
   const lastBuffer = device.createBuffer({ size: 40, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST })
-  const resultBuffer = device.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST })
-  const readBuffer = device.createBuffer({ size: 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ })
+  const paramsBuffer = device.createBuffer({ size: 32, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST })
 
-  // One params buffer + bind group per dispatch slot so the queue writes for a
-  // later dispatch cannot overwrite the params of an earlier one.
-  const params = new Uint32Array(7)
-  const slots = Array.from({ length: DISPATCHES }, () => {
-    const buffer = device.createBuffer({
-      size: params.byteLength,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    })
-    const bindGroup = device.createBindGroup({
-      layout: bindGroupLayout,
-      entries: [
-        { binding: 0, resource: { buffer: lastBuffer } },
-        { binding: 1, resource: { buffer } },
-        { binding: 2, resource: { buffer: resultBuffer } },
-      ],
-    })
-    return { buffer, bindGroup }
-  })
+  // Bind group will be created per batch with fresh result buffer
 
   const resetResult = new Uint32Array([NOT_FOUND])
   const encoder = new TextEncoder()
   const lastWords = new Uint32Array(10)
+  const params = new Uint32Array(7)
 
   while (true) {
     const job: Job = await pool.getJob()
@@ -117,64 +99,91 @@ const start = async () => {
       log.emit(mod, text.color(`invalid target: ${job.target}`, "yellow"))
       continue
     }
-    for (let i = 0; i < 5; i++) {
-      params[2 + i] = (target[i * 4] << 24) | (target[i * 4 + 1] << 16) | (target[i * 4 + 2] << 8) | target[i * 4 + 3]
-    }
 
     const maxNonce = Math.floor(job.diff * 100) + 1
     let found = NOT_FOUND
 
     log.emit(mod, `job diff ${job.diff} (${maxNonce} nonces)`)
 
-    for (let start = 0; start < maxNonce && found === NOT_FOUND; start += DISPATCHES * BATCH) {
-      const chunk = Math.min(DISPATCHES * BATCH, maxNonce - start)
-      const nDispatches = Math.ceil(chunk / BATCH)
+    // Process all nonces in large batches
+    let nonceStart = 0
+    
+    while (nonceStart < maxNonce && found === NOT_FOUND) {
+      const nonceCount = Math.min(BATCH, maxNonce - nonceStart)
+      
+      // Create FRESH result and read buffers for this batch
+      const batchResultBuffer = device.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST })
+      const batchReadBuffer = device.createBuffer({ size: 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ })
+      
+      // Reset result buffer
+      device.queue.writeBuffer(batchResultBuffer, 0, resetResult)
+      
+      // Create bind group with fresh result buffer
+      const batchBindGroup = device.createBindGroup({
+        layout: bindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: lastBuffer } },
+          { binding: 1, resource: { buffer: paramsBuffer } },
+          { binding: 2, resource: { buffer: batchResultBuffer } },
+        ],
+      })
+      
+      // Set params
+      params[0] = nonceStart
+      params[1] = nonceCount
+      for (let i = 0; i < 5; i++) {
+        params[2 + i] = (target[i * 4] << 24) | (target[i * 4 + 1] << 16) | (target[i * 4 + 2] << 8) | target[i * 4 + 3]
+      }
+      device.queue.writeBuffer(paramsBuffer, 0, params)
 
-      device.queue.writeBuffer(resultBuffer, 0, resetResult)
-
+      // Dispatch
       const commandEncoder = device.createCommandEncoder()
       const pass = commandEncoder.beginComputePass()
       pass.setPipeline(pipeline)
-      for (let d = 0; d < nDispatches; d++) {
-        const nonceStart = start + d * BATCH
-        const nonceCount = Math.min(BATCH, maxNonce - nonceStart)
-
-        params[0] = nonceStart
-        params[1] = nonceCount
-        device.queue.writeBuffer(slots[d].buffer, 0, params)
-
-        pass.setBindGroup(0, slots[d].bindGroup)
-        pass.dispatchWorkgroups(Math.ceil(nonceCount / WORKGROUP_SIZE))
-      }
+      pass.setBindGroup(0, batchBindGroup)
+      pass.dispatchWorkgroups(Math.ceil(nonceCount / WORKGROUP_SIZE))
       pass.end()
 
-      commandEncoder.copyBufferToBuffer(resultBuffer, 0, readBuffer, 0, 4)
+      commandEncoder.copyBufferToBuffer(batchResultBuffer, 0, batchReadBuffer, 0, 4)
       device.queue.submit([commandEncoder.finish()])
 
-      await readBuffer.mapAsync(GPUMapMode.READ)
-      found = new Uint32Array(readBuffer.getMappedRange())[0]
-      readBuffer.unmap()
-    }
+      // Wait for result
+      await batchReadBuffer.mapAsync(GPUMapMode.READ)
+      const result = new Uint32Array(batchReadBuffer.getMappedRange())[0]
+      batchReadBuffer.unmap()
 
-    if (found !== NOT_FOUND) {
-      // Verify on the CPU before submitting the share.
-      const hash = new Uint8Array(await crypto.subtle.digest("SHA-1", encoder.encode(job.last + found.toString()).buffer as ArrayBuffer))
-      let valid = true
-      for (let i = 0; i < 20; i++) {
-        if (hash[i] !== target[i]) {
-          valid = false
-          break
+      if (result !== NOT_FOUND) {
+        // Verify on CPU before accepting
+        const hash = new Uint8Array(await crypto.subtle.digest("SHA-1",
+          encoder.encode(job.last + result.toString()).buffer as ArrayBuffer))
+        let valid = true
+        for (let i = 0; i < 20; i++) {
+          if (hash[i] !== target[i]) {
+            valid = false
+            break
+          }
+        }
+
+        if (valid) {
+          found = result
+          log.emit(mod, text.color(`found nonce ${found}`, "green"))
+          log.emit(mod, `Sending share: nonce=${found}, job.last=${job.last}, target=${job.target}`)
+          const shareResult = await pool.sendShare(found)
+          log.emit(mod, `Share result: ${shareResult.result} ${shareResult.msg}`)
+          break  // Job done, get next job
+        } else {
+          log.emit(mod, text.color(`GPU result mismatch for nonce ${result}, ignored`, "yellow"))
+          log.emit(mod, `Debug: hash=${Array.from(hash).map(b => b.toString(16).padStart(2, "0")).join("")}, target=${target.map(b => b.toString(16).padStart(2, "0")).join("")}`)
+          // Continue searching from where we left off
         }
       }
 
-      if (valid) {
-        log.emit(mod, text.color(`found nonce ${found}`, "green"))
-        await pool.sendShare(found)
-        continue // done with this job — fetch next
-      } else {
-        log.emit(mod, text.color(`GPU result mismatch for nonce ${found}, ignored`, "yellow"))
-      }
-      continue // finished searching this job — fetch next
+      nonceStart += nonceCount
+    }
+
+    // If we exhausted all nonces without finding, just continue to next job
+    if (found === NOT_FOUND) {
+      log.emit(mod, text.color("no valid nonce found for this job", "yellow"))
     }
   }
 }

@@ -21,16 +21,26 @@ const main = async () => {
   }
 
   log.welcome("CPU", Boolean(params.get("cpu"))
-    ? `${params.get("cpu-threads")} threads`
+    ? `${params.get("cpu-backend") ?? "js-sha1"} (${params.get("cpu-threads") ?? 1} threads)`
     : text.color("disabled", "red")
   )
 
-  const adapter = await navigator.gpu?.requestAdapter()
-  const device = await adapter?.requestDevice()
+  const hasWebGPU = typeof navigator.gpu !== "undefined"
+  const userEnabledGPU = Boolean(params.get("gpu"))
+  
+  let adapter = null
+  let device = null
+  if (hasWebGPU && userEnabledGPU) {
+    adapter = await navigator.gpu.requestAdapter()
+    if (adapter) {
+      device = await adapter.requestDevice()
+    }
+  }
 
-  log.welcome("WebGPU", device
-    ? text.color("Enabled", "green")
-    : text.color("No device found", "red")
+  log.welcome("WebGPU", 
+    device ? text.color("Enabled", "green")
+    : hasWebGPU ? text.color("Available", "yellow")
+    : text.color("Not available", "red")
   )
 
   if(params.get("username") === null) {
@@ -39,22 +49,22 @@ const main = async () => {
   }
 
   if(Boolean(params.get("cpu"))) {
-    let cpuWorker: Worker | undefined
-    switch(params.get("cpu-backend")) {
-      case "webcrypto":
-        cpuWorker = new Worker(new URL("./miner/cpu/webcrpyto.ts", import.meta.url), {
-          type: 'module'
-        })
-        break
-      case "js-sha1":
-        cpuWorker = new Worker(new URL("./miner/cpu/js-sha1.ts", import.meta.url), {
-          type: 'module'
-        })
-        break
-    }
+    for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
+      let cpuWorker: Worker | undefined
+      switch(params.get("cpu-backend") ?? "js-sha1") {
+        case "webcrypto":
+          cpuWorker = new Worker(new URL("./miner/cpu/webcrpyto.ts", import.meta.url), {
+            type: 'module'
+          })
+          break
+        case "js-sha1":
+          cpuWorker = new Worker(new URL("./miner/cpu/js-sha1.ts", import.meta.url), {
+            type: 'module'
+          })
+          break
+      }
 
-    if (cpuWorker) {
-      for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
+      if (cpuWorker) {
         addWorker(
           cpuWorker,
           thread.toString(),
