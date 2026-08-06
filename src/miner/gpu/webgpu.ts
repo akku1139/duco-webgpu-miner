@@ -169,9 +169,11 @@ const start = async () => {
       if (valid) {
         log.emit(mod, text.color(`found nonce ${found}`, "green"))
         await pool.sendShare(found)
+        continue // done with this job — fetch next
       } else {
         log.emit(mod, text.color(`GPU result mismatch for nonce ${found}, ignored`, "yellow"))
       }
+      continue // finished searching this job — fetch next
     }
   }
 }

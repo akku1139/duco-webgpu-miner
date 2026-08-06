@@ -55,11 +55,6 @@ const main = async () => {
           type: 'module'
         })
         break
-      case "wasm":
-          cpuWorker = new Worker(new URL("./miner/cpu/wasm.ts", import.meta.url), {
-            type: 'module'
-          })
-          break
     }
 
     if (cpuWorker) {
