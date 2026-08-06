@@ -15,6 +15,7 @@ addEventListener("message", async (e) => {
     const thread: string = e.data.thread
     pool = await PoolManager.new(
       log, mod, thread, c.username, c.rigID + " (CPU)", c.miningKey, c.noWS,
+      c.baseDiff,
     )
     log = new WorkerLog(thread)
     log.emit(mod, "Starting")

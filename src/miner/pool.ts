@@ -35,7 +35,7 @@ export class PoolManager {
    * never `new PoolManager()`
    * use `await PoolManager.new()` insted
    */
-  constructor(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket) {
+  constructor(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, useWS: boolean, ws: WebSocket, baseDiff: string) {
     this.log = log
     this.mod = mod
     this.thread = thread
@@ -44,7 +44,7 @@ export class PoolManager {
     this.#miningKey = miningKey || "None"
     this.#useWS = useWS
     this.#ws = ws
-    this.#baseDiff = "LOW"
+    this.#baseDiff = baseDiff
 
     this.#threadID = Math.floor(Math.random() * 10000)
 
@@ -63,7 +63,7 @@ export class PoolManager {
     // log.emit("net", `login as ${username}`)
   }
 
-  static async new(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, noWS: boolean) {
+  static async new(log: WorkerLog, mod: LogMod, thread: string, username: string, rigid: string, miningKey: string, noWS: boolean, baseDiff: string = "LOW") {
     let useWS = true
     /**
      * @type {WebSocket}
@@ -111,7 +111,7 @@ export class PoolManager {
       }
     }
 
-    const self = new this(log, mod, thread, username, rigid, miningKey, useWS, ws)
+    const self = new this(log, mod, thread, username, rigid, miningKey, useWS, ws, baseDiff)
     return self
   }
 

@@ -5,6 +5,7 @@ export type Config = {
   miningKey: string,
   rigID: string,
   noWS: boolean,
+  baseDiff: "LOW" | "MEDIUM" | "NET" | "EXTREME",
 }
 
 export type Result = {

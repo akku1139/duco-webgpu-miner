@@ -17,6 +17,7 @@ const main = async () => {
     miningKey: params.get("miningkey") ?? "None",
     rigID: params.get("rigid") ?? "Duino-Coin WebGPU Miner",
     noWS: Boolean(params.get("nows") ?? false),
+    baseDiff: (params.get("basediff") ?? "LOW") as Config["baseDiff"],
   }
 
   log.welcome("CPU", Boolean(params.get("cpu"))
@@ -70,7 +71,7 @@ const main = async () => {
     addWorker(
       gpuWorker,
       "gpu",
-      config,
+      { ...config, baseDiff: "EXTREME" },
     )
   }
 }

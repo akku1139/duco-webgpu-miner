@@ -9,7 +9,7 @@
     <form action="/" method="GET">
       <p><label>Duino-Coin username * : <input type="text" name="username" placeholder="akku" required></label></p>
       <p><label>Mining key: <input type="password" name="miningkey" placeholder="None"></label></p>
-      <p><label>Miner name: <input typr="text" name="rigid"></label></p>
+      <p><label>Miner name: <input type="text" name="rigid"></label></p>
 
       <p><label>GPU: <input type="checkbox" name="gpu" value="true" checked></label></p>
       <details>
@@ -26,10 +26,19 @@
       </details>
 
       <details>
+        <summary>Difficulty settings</summary>
+        <p>Base difficulty (GPU always uses EXTREME):</p>
+        <p><label><input type="radio" name="basediff" value="LOW" checked> LOW</label></p>
+        <p><label><input type="radio" name="basediff" value="MEDIUM"> MEDIUM</label></p>
+        <p><label><input type="radio" name="basediff" value="NET"> NET</label></p>
+        <p><label><input type="radio" name="basediff" value="EXTREME"> EXTREME</label></p>
+      </details>
+
+      <details>
         <summary>Advanced settings</summary>
         <p><label>Don't use WebSocket: <input type="checkbox" name="nows" value="true"></label></p>
       </details>
-      <p><input type="submit" value="Start Minig!"></p>
+      <p><input type="submit" value="Start Mining!"></p>
       <p>* Required</p>
     </form>
   </body>
