@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>WebGPU SHA-1 Test</title>
+</head>
+<body>
+  <h1>WebGPU SHA-1</h1>
+  <pre id="log"></pre>
+  <script type="module">
+    const log = (msg) => {
+      document.getElementById('log').textContent += msg + '\n';
+      console.log(msg);
+    };
+
+    // ---------- SHA-1 パディング（JavaScript） ----------
+    function sha1Pad(message) {
+      const msgBytes = new TextEncoder().encode(message);
+      const ml = msgBytes.length * 8; // メッセージ長（ビット）
+      // パディング: 1bit + 0bits + 64bit length
+      const padLen = (448 - (ml + 1) % 512 + 512) % 512; // 0埋めのビット数
+      const totalBits = ml + 1 + padLen + 64;
+      const totalBytes = totalBits / 8;
+      const padded = new Uint8Array(totalBytes);
+      padded.set(msgBytes);
+      // 1ビット追加
+      padded[msgBytes.length] = 0x80;
+      // 0埋めは既に0
+      // 64ビット長をビッグエンディアンで最後に書き込む
+      const view = new DataView(padded.buffer);
+      view.setBigUint64(totalBytes - 8, BigInt(ml), false); // false = big-endian
+      return padded;
+    }
+
+    // バイト列をビッグエンディアン 32bit 整数配列に変換
+    function bytesToBigEndianWords(bytes) {
+      const words = new Uint32Array(bytes.length / 4);
+      const view = new DataView(bytes.buffer);
+      for (let i = 0; i < words.length; i++) {
+        words[i] = view.getUint32(i * 4, false);
+      }
+      return words;
+    }
+
+    // ---------- WGSL シェーダー ----------
+    const shaderCode = /* wgsl */ `
+      struct Input {
+        numBlocks: u32,
+      };
+      @group(0) @binding(0) var<uniform> input: Input;
+      @group(0) @binding(1) var<storage, read> blockData: array<u32>;
+      @group(0) @binding(2) var<storage, read_write> hashOut: array<u32>;
+
+      // ローテート左
+      fn ROTL(x: u32, n: u32) -> u32 {
+        return (x << n) | (x >> (32u - n));
+      }
+
+      @compute @workgroup_size(1)
+      fn main() {
+        // 初期ハッシュ値
+        var h0: u32 = 0x67452301u;
+        var h1: u32 = 0xEFCDAB89u;
+        var h2: u32 = 0x98BADCFEu;
+        var h3: u32 = 0x10325476u;
+        var h4: u32 = 0xC3D2E1F0u;
+
+        var w: array<u32, 80>;
+
+        for (var i = 0u; i < input.numBlocks; i++) {
+          let base = i * 16u;
+          // ブロック読み込み（16ワード）
+          for (var t = 0u; t < 16u; t++) {
+            w[t] = blockData[base + t];
+          }
+          // メッセージスケジュール拡張
+          for (var t = 16u; t < 80u; t++) {
+            let wt = w[t-3u] ^ w[t-8u] ^ w[t-14u] ^ w[t-16u];
+            w[t] = ROTL(wt, 1u);
+          }
+
+          var a = h0;
+          var b = h1;
+          var c = h2;
+          var d = h3;
+          var e = h4;
+          var f: u32;
+          var k: u32;
+
+          for (var t = 0u; t < 80u; t++) {
+            if (t <= 19u) {
+              f = (b & c) | ((~b) & d);
+              k = 0x5A827999u;
+            } else if (t <= 39u) {
+              f = b ^ c ^ d;
+              k = 0x6ED9EBA1u;
+            } else if (t <= 59u) {
+              f = (b & c) | (b & d) | (c & d);
+              k = 0x8F1BBCDCu;
+            } else {
+              f = b ^ c ^ d;
+              k = 0xCA62C1D6u;
+            }
+
+            let temp = ROTL(a, 5u) + f + e + k + w[t];
+            e = d;
+            d = c;
+            c = ROTL(b, 30u);
+            b = a;
+            a = temp;
+          }
+
+          h0 = h0 + a;
+          h1 = h1 + b;
+          h2 = h2 + c;
+          h3 = h3 + d;
+          h4 = h4 + e;
+        }
+
+        // 結果を書き込み（内部状態そのまま＝ビッグエンディアン）
+        hashOut[0] = h0;
+        hashOut[1] = h1;
+        hashOut[2] = h2;
+        hashOut[3] = h3;
+        hashOut[4] = h4;
+      }
+    `;
+
+    // ---------- WebGPU セットアップと実行 ----------
+    async function runSHA1(message) {
+      if (!navigator.gpu) {
+        log('WebGPU がサポートされていません。');
+        return null;
+      }
+      const adapter = await navigator.gpu.requestAdapter();
+      if (!adapter) {
+        log('GPUアダプターが見つかりません。');
+        return null;
+      }
+      const device = await adapter.requestDevice();
+
+      // パディングしてワード配列に変換
+      const padded = sha1Pad(message);
+      const words = bytesToBigEndianWords(padded);
+      const numBlocks = words.length / 16;
+
+      // 入力バッファ (ブロックデータ)
+      const blockBuffer = device.createBuffer({
+        size: words.byteLength,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        mappedAtCreation: true,
+      });
+      new Uint32Array(blockBuffer.getMappedRange()).set(words);
+      blockBuffer.unmap();
+
+      // 出力バッファ (ハッシュ 5ワード = 20バイト)
+      const hashBuffer = device.createBuffer({
+        size: 5 * 4,
+        usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
+      });
+
+      // ユニフォームバッファ (ブロック数)
+      const uniformBuffer = device.createBuffer({
+        size: 4,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        mappedAtCreation: true,
+      });
+      new Uint32Array(uniformBuffer.getMappedRange())[0] = numBlocks;
+      uniformBuffer.unmap();
+
+      // バインドグループ・パイプライン
+      const bindGroupLayout = device.createBindGroupLayout({
+        entries: [
+          { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+          { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+          { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        ],
+      });
+
+      const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] });
+      const module = device.createShaderModule({ code: shaderCode });
+      const pipeline = device.createComputePipeline({
+        layout: pipelineLayout,
+        compute: { module, entryPoint: 'main' },
+      });
+
+      const bindGroup = device.createBindGroup({
+        layout: bindGroupLayout,
+        entries: [
+          { binding: 0, resource: { buffer: uniformBuffer } },
+          { binding: 1, resource: { buffer: blockBuffer } },
+          { binding: 2, resource: { buffer: hashBuffer } },
+        ],
+      });
+
+      // コマンドエンコード
+      const encoder = device.createCommandEncoder();
+      const pass = encoder.beginComputePass();
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, bindGroup);
+      pass.dispatchWorkgroups(1);
+      pass.end();
+
+      // 結果読み取り用バッファ
+      const readBuffer = device.createBuffer({
+        size: 20,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+      });
+      encoder.copyBufferToBuffer(hashBuffer, 0, readBuffer, 0, 20);
+      device.queue.submit([encoder.finish()]);
+
+      // 読み取り
+      await readBuffer.mapAsync(GPUMapMode.READ);
+      const resultArray = new Uint8Array(readBuffer.getMappedRange());
+      // 5ワードのUint32として解釈（ビッグエンディアン）
+      const hashHex = Array.from(new Uint32Array(resultArray.buffer))
+        .map(w => w.toString(16).padStart(8, '0'))
+        .join('');
+      readBuffer.unmap();
+      return hashHex;
+    }
+
+    // ---------- 動作テスト ----------
+    (async () => {
+      const testVectors = [
+        { input: '', expected: 'da39a3ee5e6b4b0d3255bfef95601890afd80709' },
+        { input: 'abc', expected: 'a9993e364706816aba3e25717850c26c9cd0d89d' },
+        { input: 'abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq', expected: '84983e441c3bd26ebaae4aa1f95129e5e54670f1' },
+      ];
+
+      for (const tv of testVectors) {
+        const result = await runSHA1(tv.input);
+        const pass = result === tv.expected ? '✅' : '❌';
+        log(`${pass} メッセージ: "${tv.input}"`);
+        log(`  期待値: ${tv.expected}`);
+        log(`  計算値: ${result}`);
+      }
+    })();
+  </script>
+</body>
+</html>
