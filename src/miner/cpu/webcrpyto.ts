@@ -40,7 +40,7 @@ const start = async () => {
   while(true) {
     job = await pool.getJob()
     baseHash = encoder.encode(job.last)
-    targetHash = new Uint8Array(job.target.match(/../g).map(hex => parseInt(hex, 16)))
+    targetHash = new Uint8Array((job.target.match(/../g) ?? []).map(hex => parseInt(hex, 16)))
 
     i = 0
     realDiff = job.diff * 100 + 1
@@ -51,7 +51,7 @@ const start = async () => {
       newData.set(baseHash);
       newData.set(nonceArray, baseHash.length)
 
-      hash = new Uint8Array(await crypto.subtle.digest("SHA-1", newData))
+      hash = new Uint8Array(await crypto.subtle.digest("SHA-1", newData.buffer as ArrayBuffer))
 
       for(j = 0; j < 20; j++) {
         if(targetHash[j] !== hash[j]) {

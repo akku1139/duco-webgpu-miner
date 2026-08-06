@@ -35,7 +35,7 @@ const start = async () => {
 
   while(true) {
     job = await pool.getJob()
-    targetHash = new Uint8Array(job.target.match(/../g).map(hex => parseInt(hex, 16)))
+    targetHash = new Uint8Array((job.target.match(/../g) ?? []).map(hex => parseInt(hex, 16)))
 
     i = 0
     realDiff = job.diff * 100 + 1

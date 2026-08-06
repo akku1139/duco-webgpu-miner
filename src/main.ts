@@ -38,7 +38,7 @@ const main = async () => {
   }
 
   if(Boolean(params.get("cpu"))) {
-    let cpuWorker: Worker
+    let cpuWorker: Worker | undefined
     switch(params.get("cpu-backend")) {
       case "webcrypto":
         cpuWorker = new Worker(new URL("./miner/cpu/webcrpyto.ts", import.meta.url), {
@@ -62,13 +62,26 @@ const main = async () => {
           break
     }
 
-    for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
-      addWorker(
-        cpuWorker,
-        thread.toString(),
-        config,
-      )
+    if (cpuWorker) {
+      for (let thread = 0; thread < Number(params.get("cpu-threads") ?? 1); thread++) {
+        addWorker(
+          cpuWorker,
+          thread.toString(),
+          config,
+        )
+      }
     }
+  }
+
+  if(Boolean(params.get("gpu"))) {
+    const gpuWorker = new Worker(new URL("./miner/gpu/webgpu.ts", import.meta.url), {
+      type: 'module'
+    })
+    addWorker(
+      gpuWorker,
+      "gpu",
+      config,
+    )
   }
 }
 

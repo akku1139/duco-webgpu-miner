@@ -4,7 +4,6 @@
     "useDefineForClassFields": true,
     "module": "ESNext",
     "lib": ["ESNext", "DOM", "DOM.Iterable", "WebWorker"],
-    "typeRoots": ["./src/lib/webgpu-types.d.ts"],
     "skipLibCheck": true,
 
     /* Bundler mode */
@@ -21,10 +20,9 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
 
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "note"]
+  "include": ["src"]
 }
