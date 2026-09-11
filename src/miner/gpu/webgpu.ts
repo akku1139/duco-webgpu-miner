@@ -9,7 +9,7 @@ let pool: PoolManager
 let log: WorkerLog
 const mod = "gpu"
 
-const WORKGROUP_SIZE = 256
+const WORKGROUP_SIZE = 128
 // 262,144 nonces * 16 bytes = 4 MiB. This is large enough to amortize
 // dispatch/readback overhead while keeping host-side preprocessing bounded.
 const BATCH = 1 << 22
