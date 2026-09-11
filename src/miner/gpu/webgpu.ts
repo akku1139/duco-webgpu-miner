@@ -12,7 +12,7 @@ const mod = "gpu"
 const WORKGROUP_SIZE = 256
 // 262,144 nonces * 16 bytes = 4 MiB. This is large enough to amortize
 // dispatch/readback overhead while keeping host-side preprocessing bounded.
-const BATCH = 1 << 20
+const BATCH = 1 << 22
 const NOT_FOUND = 0xFFFFFFFF
 
 const SHA1_H0 = 0x67452301
@@ -21,6 +21,7 @@ const SHA1_H2 = 0x98BADCFE
 const SHA1_H3 = 0x10325476
 const SHA1_H4 = 0xC3D2E1F0
 const SHA1_K0 = 0x5A827999
+const textEncoder = new TextEncoder()
 
 function rotl(x: number, n: number): number {
   return ((x << n) | (x >>> (32 - n))) >>> 0
@@ -68,7 +69,7 @@ function u32be(bytes: Uint8Array, offset: number): number {
 }
 
 function fixedInput(last: string): Uint32Array {
-  const bytes = new TextEncoder().encode(last)
+  const bytes = textEncoder.encode(last)
   if (bytes.length !== 40) {
     throw new Error(`last hash must encode to exactly 40 bytes, got ${bytes.length}`)
   }
@@ -212,7 +213,7 @@ const start = async () => {
 
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
-      { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
+      { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } },
       { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } },
       { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },
       { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
@@ -239,8 +240,8 @@ const start = async () => {
 
   // Persistent allocations: no per-batch GPUBuffer/bind-group churn.
   const fixedBuffer = device.createBuffer({
-    size: 15 * 4,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    size: 64,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
   const paramsBuffer = device.createBuffer({
     size: 32,
@@ -263,7 +264,6 @@ const start = async () => {
 
   const params = new Uint32Array(8)
   const read = new Uint32Array(1)
-  const encoder = new TextEncoder()
 
   const bindGroup = device.createBindGroup({
     layout: bindGroupLayout,
@@ -301,6 +301,7 @@ const start = async () => {
     }
 
     const maxNonce = Math.floor(job.diff * 100) + 1
+    const targetWordValues = targetWords(target)
     let found = NOT_FOUND
     log.emit(mod, `job diff ${job.diff} (${maxNonce} nonces)`)
 
@@ -317,7 +318,7 @@ const start = async () => {
 
       params[0] = nonceStart
       params[1] = nonceCount
-      params.set(targetWords(target), 2)
+      params.set(targetWordValues, 2)
       device.queue.writeBuffer(paramsBuffer, 0, params)
 
       found = await findNonce(
@@ -336,7 +337,7 @@ const start = async () => {
       }
 
       // Never submit an unverified GPU result.
-      const digestInput = encoder.encode(job.last + found.toString())
+      const digestInput = textEncoder.encode(job.last + found.toString())
       const hash = new Uint8Array(
         await crypto.subtle.digest("SHA-1", digestInput.buffer as ArrayBuffer),
       )
