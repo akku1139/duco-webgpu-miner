@@ -13,6 +13,7 @@ const WORKGROUP_SIZE = 256
 // 262,144 nonces * 16 bytes = 4 MiB. This is large enough to amortize
 // dispatch/readback overhead while keeping host-side preprocessing bounded.
 const BATCH = 1 << 22
+const IN_FLIGHT = 4
 const NOT_FOUND = 0xFFFFFFFF
 
 const SHA1_H0 = 0x67452301
@@ -97,18 +98,20 @@ function targetWords(target: Uint8Array): Uint32Array {
   return words
 }
 
-function makeDigitLut(): Uint32Array {
-  const lut = new Uint32Array(10000)
-  for (let i = 0; i < 10000; i++) {
-    const d0 = 48 + Math.floor(i / 1000)
-    const d1 = 48 + Math.floor(i / 100) % 10
-    const d2 = 48 + Math.floor(i / 10) % 10
-    const d3 = 48 + i % 10
-    lut[i] =
-      (d0 << 24) |
-      (d1 << 16) |
-      (d2 << 8) |
-      d3
+function makeDigitLut5(): Uint32Array {
+  // 100000 entries * 8 bytes = 800 KiB.
+  // Each entry stores five ASCII digits as:
+  //   [0..3] in word 0, [4] in low byte of word 1.
+  const lut = new Uint32Array(100000 * 2)
+  for (let i = 0; i < 100000; i++) {
+    const d0 = 48 + Math.floor(i / 10000)
+    const d1 = 48 + Math.floor(i / 1000) % 10
+    const d2 = 48 + Math.floor(i / 100) % 10
+    const d3 = 48 + Math.floor(i / 10) % 10
+    const d4 = 48 + i % 10
+    const p = i * 2
+    lut[p] = (d0 << 24) | (d1 << 16) | (d2 << 8) | d3
+    lut[p + 1] = d4
   }
   return lut
 }
@@ -139,30 +142,57 @@ function nextDigitBoundary(n: number): number {
   return 0xFFFFFFFF
 }
 
-async function findNonce(
+async function findNonceBatch(
   device: GPUDevice,
-  pipeline: GPUComputePipeline,
-  bindGroup: GPUBindGroup,
-  resultBuffer: GPUBuffer,
-  readBuffer: GPUBuffer,
-  read: Uint32Array,
-  count: number,
+  jobs: Array<{ start: number; count: number; digits: number }>,
+  getPipeline: (digits: number) => GPUComputePipeline,
+  bindGroups: GPUBindGroup[],
+  params: Uint32Array[],
+  paramsBuffers: GPUBuffer[],
+  resultBuffers: GPUBuffer[],
+  readBuffers: GPUBuffer[],
+  reads: Uint32Array[],
+  targetWordsValue: Uint32Array,
 ): Promise<number> {
-  device.queue.writeBuffer(resultBuffer, 0, new Uint32Array([NOT_FOUND]))
+  if (jobs.length === 0) return NOT_FOUND
 
-  const commandEncoder = device.createCommandEncoder()
-  const pass = commandEncoder.beginComputePass()
-  pass.setPipeline(pipeline)
-  pass.setBindGroup(0, bindGroup)
-  pass.dispatchWorkgroups(Math.ceil(count / WORKGROUP_SIZE))
-  pass.end()
-  commandEncoder.copyBufferToBuffer(resultBuffer, 0, readBuffer, 0, 4)
-  device.queue.submit([commandEncoder.finish()])
+  const encoder = device.createCommandEncoder()
 
-  await readBuffer.mapAsync(GPUMapMode.READ)
-  read[0] = new Uint32Array(readBuffer.getMappedRange())[0]
-  readBuffer.unmap()
-  return read[0]
+  for (let slot = 0; slot < jobs.length; slot++) {
+    const job = jobs[slot]
+    const p = params[slot]
+    p[0] = job.start
+    p[1] = job.count
+    p.set(targetWordsValue, 2)
+
+    device.queue.writeBuffer(paramsBuffers[slot], 0, p)
+    device.queue.writeBuffer(resultBuffers[slot], 0, new Uint32Array([NOT_FOUND]))
+
+    const pass = encoder.beginComputePass()
+    pass.setPipeline(getPipeline(job.digits))
+    pass.setBindGroup(0, bindGroups[slot])
+    pass.dispatchWorkgroups(Math.ceil(job.count / WORKGROUP_SIZE))
+    pass.end()
+
+    encoder.copyBufferToBuffer(resultBuffers[slot], 0, readBuffers[slot], 0, 4)
+  }
+
+  device.queue.submit([encoder.finish()])
+
+  const values = await Promise.all(
+    jobs.map(async (_, slot) => {
+      await readBuffers[slot].mapAsync(GPUMapMode.READ)
+      reads[slot][0] = new Uint32Array(readBuffers[slot].getMappedRange())[0]
+      readBuffers[slot].unmap()
+      return reads[slot][0]
+    }),
+  )
+
+  let found = NOT_FOUND
+  for (const value of values) {
+    if (value !== NOT_FOUND && value < found) found = value
+  }
+  return found
 }
 
 addEventListener("message", async (e) => {
@@ -243,40 +273,43 @@ const start = async () => {
     size: 64,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   })
-  const paramsBuffer = device.createBuffer({
+  const paramsBuffers = Array.from({ length: IN_FLIGHT }, () => device.createBuffer({
     size: 32,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-  })
-  const resultBuffer = device.createBuffer({
+  }))
+  const resultBuffers = Array.from({ length: IN_FLIGHT }, () => device.createBuffer({
     size: 4,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST,
-  })
-  const readBuffer = device.createBuffer({
+  }))
+  const readBuffers = Array.from({ length: IN_FLIGHT }, () => device.createBuffer({
     size: 4,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-  })
-  const digitLut = makeDigitLut()
+  }))
+  const digitLut = makeDigitLut5()
   const digitLutBuffer = device.createBuffer({
     size: digitLut.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   })
   device.queue.writeBuffer(digitLutBuffer, 0, digitLut)
 
-  const params = new Uint32Array(8)
-  const read = new Uint32Array(1)
-
-  const bindGroup = device.createBindGroup({
-    layout: bindGroupLayout,
-    entries: [
-      { binding: 0, resource: { buffer: fixedBuffer } },
-      { binding: 1, resource: { buffer: paramsBuffer } },
-      { binding: 2, resource: { buffer: resultBuffer } },
-      { binding: 3, resource: { buffer: digitLutBuffer } },
-    ],
-  })
-
+  const params = Array.from({ length: IN_FLIGHT }, () => new Uint32Array(8))
+  const reads = Array.from({ length: IN_FLIGHT }, () => new Uint32Array(1))
   const resetResult = new Uint32Array([NOT_FOUND])
-  device.queue.writeBuffer(resultBuffer, 0, resetResult)
+  const bindGroups = Array.from({ length: IN_FLIGHT }, (_, slot) =>
+    device.createBindGroup({
+      layout: bindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: fixedBuffer } },
+        { binding: 1, resource: { buffer: paramsBuffers[slot] } },
+        { binding: 2, resource: { buffer: resultBuffers[slot] } },
+        { binding: 3, resource: { buffer: digitLutBuffer } },
+      ],
+    }),
+  )
+
+  for (const resultBuffer of resultBuffers) {
+    device.queue.writeBuffer(resultBuffer, 0, resetResult)
+  }
 
   while (true) {
     let job: Job
@@ -306,66 +339,63 @@ const start = async () => {
     log.emit(mod, `job diff ${job.diff} (${maxNonce} nonces)`)
 
     for (let nonceStart = 0; nonceStart < maxNonce && found === NOT_FOUND; ) {
-      // Every dispatch stays inside one decimal digit range, so the shader's
-      // nonce encoding path is uniform. No per-nonce CPU preprocessing occurs.
       const boundary = nextDigitBoundary(nonceStart)
       const nonceDigits = decimalDigits(nonceStart)
-      const nonceCount = Math.min(
-        BATCH,
-        maxNonce - nonceStart,
-        boundary - nonceStart,
-      )
+      const segmentEnd = Math.min(maxNonce, boundary)
 
-      params[0] = nonceStart
-      params[1] = nonceCount
-      params.set(targetWordValues, 2)
-      device.queue.writeBuffer(paramsBuffer, 0, params)
+      while (nonceStart < segmentEnd && found === NOT_FOUND) {
+        const jobs: Array<{ start: number; count: number; digits: number }> = []
 
-      found = await findNonce(
-        device,
-        getPipeline(nonceDigits),
-        bindGroup,
-        resultBuffer,
-        readBuffer,
-        read,
-        nonceCount,
-      )
-
-      if (found === NOT_FOUND) {
-        nonceStart += nonceCount
-        continue
-      }
-
-      // Never submit an unverified GPU result.
-      const digestInput = textEncoder.encode(job.last + found.toString())
-      const hash = new Uint8Array(
-        await crypto.subtle.digest("SHA-1", digestInput.buffer as ArrayBuffer),
-      )
-
-      let valid = true
-      for (let i = 0; i < 20; i++) {
-        if (hash[i] !== target[i]) {
-          valid = false
-          break
+        for (let slot = 0; slot < IN_FLIGHT && nonceStart < segmentEnd; slot++) {
+          const nonceCount = Math.min(BATCH, segmentEnd - nonceStart)
+          jobs.push({ start: nonceStart, count: nonceCount, digits: nonceDigits })
+          nonceStart += nonceCount
         }
-      }
 
-      if (!valid) {
-        log.emit(mod, text.color(`GPU result mismatch for nonce ${found}, ignored`, "yellow"))
-        log.emit(
-          mod,
-          `Debug: hash=${Array.from(hash).map((b) => b.toString(16).padStart(2, "0")).join("")}, target=${job.target}`,
+        found = await findNonceBatch(
+          device,
+          jobs,
+          getPipeline,
+          bindGroups,
+          params,
+          paramsBuffers,
+          resultBuffers,
+          readBuffers,
+          reads,
+          targetWordValues,
         )
-        found = NOT_FOUND
-        nonceStart += nonceCount
-        continue
-      }
 
-      log.emit(mod, text.color(`found nonce ${found}`, "green"))
-      log.emit(mod, `Sending share: nonce=${found}, job.last=${job.last}, target=${job.target}`)
-      const shareResult = await pool.sendShare(found)
-      log.emit(mod, `Share result: ${shareResult.result} ${shareResult.msg}`)
-      nonceStart += nonceCount
+        if (found === NOT_FOUND) continue
+
+        // Never submit an unverified GPU result.
+        const digestInput = textEncoder.encode(job.last + found.toString())
+        const hash = new Uint8Array(
+          await crypto.subtle.digest("SHA-1", digestInput.buffer as ArrayBuffer),
+        )
+
+        let valid = true
+        for (let i = 0; i < 20; i++) {
+          if (hash[i] !== target[i]) {
+            valid = false
+            break
+          }
+        }
+
+        if (!valid) {
+          log.emit(mod, text.color(`GPU result mismatch for nonce ${found}, ignored`, "yellow"))
+          log.emit(
+            mod,
+            `Debug: hash=${Array.from(hash).map((b) => b.toString(16).padStart(2, "0")).join("")}, target=${job.target}`,
+          )
+          found = NOT_FOUND
+          continue
+        }
+
+        log.emit(mod, text.color(`found nonce ${found}`, "green"))
+        log.emit(mod, `Sending share: nonce=${found}, job.last=${job.last}, target=${job.target}`)
+        const shareResult = await pool.sendShare(found)
+        log.emit(mod, `Share result: ${shareResult.result} ${shareResult.msg}`)
+      }
     }
 
     if (found === NOT_FOUND) {
