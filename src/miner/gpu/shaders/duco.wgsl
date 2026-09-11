@@ -1,4 +1,4 @@
-// Duino-Coin SHA-1 WebGPU occupancy candidate v6.
+// Duino-Coin SHA-1 WebGPU fast path v4.
 //
 // Fixed 40-byte prefix is precomputed through SHA-1 round 9 on the CPU.
 // The 60-byte fixed state/input is carried in a 64-byte uniform block,
@@ -28,13 +28,14 @@ override NONCE_DIGITS: u32 = 10u;
 @group(0) @binding(0) var<uniform> fixed: Fixed;
 @group(0) @binding(1) var<uniform> params: Params;
 @group(0) @binding(2) var<storage, read_write> result: atomic<u32>;
-@group(0) @binding(3) var<storage, read> digit_lut: array<vec2<u32>, 100000>;
+@group(0) @binding(3) var<storage, read> digit4_lut: array<u32, 10000>;
+@group(0) @binding(4) var<storage, read> digit5_lut: array<vec2<u32>, 100000>;
 
 fn rotl(x: u32, n: u32) -> u32 {
   return (x << n) | (x >> (32u - n));
 }
 
-@compute @workgroup_size(128)
+@compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let id = gid.x;
 
@@ -65,127 +66,74 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   var w14 = 0u;
   var w15 = (40u + NONCE_DIGITS) << 3u;
 
-  // The LUT stores exactly five ASCII digits as two words:
-  //   .x = digits 0..3
-  //   .y = digit 4 in the low byte
-  //
-  // For 6..10 digits, one division by 100000 produces the high
-  // 1..5 digits; the low five digits are one LUT access.  This
-  // replaces the multiple decimal divisions used previously.
-  if (NONCE_DIGITS <= 5u) {
-    let x = digit_lut[nonce];
-    let a0 = (x.x >> 24u) & 0xFFu;
-    let a1 = (x.x >> 16u) & 0xFFu;
-    let a2 = (x.x >> 8u) & 0xFFu;
-    let a3 = x.x & 0xFFu;
-    let a4 = x.y & 0xFFu;
+  // v7 decimal packing:
+  // - 1..4 digits: one 4-digit packed LUT entry
+  // - 5 digits: one 5-digit LUT entry
+  // - 6..9 digits: one /100000 split; high digits use the small 4-digit LUT
+  // - 10 digits: one /100000 split; both halves use the 5-digit LUT
+  // All packing expressions are byte-exact big-endian SHA-1 words.
+  // This removes the extra /10 and /100 operations from the 7/8-digit paths
+  // and avoids the larger 5-digit LUT for the small high halves.
+  var w10 = 0u;
+  var w11 = 0u;
+  var w12 = 0u;
+  var w13 = 0u;
+  var w14 = 0u;
+  var w15 = (40u + NONCE_DIGITS) << 3u;
 
-    if (NONCE_DIGITS == 5u) {
-      w10 = x.x;
-      w11 = (a4 << 24u) | 0x00800000u;
-    } else if (NONCE_DIGITS == 4u) {
-      w10 = (a1 << 24u) | (a2 << 16u) | (a3 << 8u) | a4;
+  if (NONCE_DIGITS <= 4u) {
+    let x = digit4_lut[nonce];
+    if (NONCE_DIGITS == 4u) {
+      w10 = x;
       w11 = 0x80000000u;
     } else if (NONCE_DIGITS == 3u) {
-      w10 = (a2 << 24u) | (a3 << 16u) | (a4 << 8u) | 0x80u;
+      w10 = (x & 0x00FFFFFFu) << 8u | 0x00000080u;
     } else if (NONCE_DIGITS == 2u) {
-      w10 = (a3 << 24u) | (a4 << 16u) | 0x00008000u;
+      w10 = (x & 0x0000FFFFu) << 16u | 0x00008000u;
     } else {
-      w10 = (a4 << 24u) | 0x00800000u;
+      w10 = (x & 0x000000FFu) << 24u | 0x00800000u;
     }
+  } else if (NONCE_DIGITS == 5u) {
+    let x = digit5_lut[nonce];
+    w10 = x.x;
+    w11 = (x.y & 0xFFu) << 24u | 0x00800000u;
   } else {
-    // One constant division by 100000. The remainder is always 0..99999,
-    // so both halves can use the same five-digit LUT.
     let q = nonce / 100000u;
     let r = nonce - q * 100000u;
-    let hi = digit_lut[q];
-    let lo = digit_lut[r];
+    let lo = digit5_lut[r];
 
     if (NONCE_DIGITS == 6u) {
-      // q: 1 digit, r: 5 digits
       w10 = ((0x30u + q) << 24u) | (lo.x >> 8u);
-      w11 = ((lo.x & 0x000000FFu) << 24u) |
-            ((lo.y & 0xFFu) << 16u) |
-            0x00008000u;
+      w11 = ((lo.x & 0xFFu) << 24u) | ((lo.y & 0xFFu) << 16u) | 0x00008000u;
     } else if (NONCE_DIGITS == 7u) {
-      // q: 2 digits, r: 5 digits
-      let q0 = q / 10u;
-      let q1 = q - q0 * 10u;
-      w10 = ((0x30u + q0) << 24u) |
-            ((0x30u + q1) << 16u) |
-            ((lo.x & 0xFFFF0000u) >> 16u);
-      w11 = ((lo.x & 0x0000FFFFu) << 16u) |
-            ((lo.y & 0xFFu) << 8u) |
-            0x80u;
+      let hi = digit4_lut[q];
+      w10 = ((hi & 0x0000FFFFu) << 16u) | (lo.x >> 16u);
+      w11 = ((lo.x & 0x0000FFFFu) << 16u) | ((lo.y & 0xFFu) << 8u) | 0x80u;
     } else if (NONCE_DIGITS == 8u) {
-      // q: 3 digits, r: 5 digits
-      let q0 = q / 100u;
-      let qr = q - q0 * 100u;
-      let q1 = qr / 10u;
-      let q2 = qr - q1 * 10u;
-      w10 = ((0x30u + q0) << 24u) |
-            ((0x30u + q1) << 16u) |
-            ((0x30u + q2) << 8u) |
-            ((lo.x >> 24u) & 0xFFu);
-      w11 = ((lo.x & 0x00FFFFFFu) << 8u) |
-            (lo.y & 0xFFu);
+      let hi = digit4_lut[q];
+      w10 = ((hi & 0x00FFFFFFu) << 8u) | (lo.x >> 24u);
+      w11 = ((lo.x & 0x00FFFFFFu) << 8u) | (lo.y & 0xFFu);
       w12 = 0x80000000u;
     } else if (NONCE_DIGITS == 9u) {
-      // q: 4 digits, r: 5 digits
-      w10 = ((hi.x & 0x00FFFFFFu) << 8u) | (hi.y & 0xFFu);
+      let hi = digit4_lut[q];
+      w10 = hi;
       w11 = lo.x;
       w12 = ((lo.y & 0xFFu) << 24u) | 0x00800000u;
     } else {
-      // q: 5 digits, r: 5 digits
-      let h4 = hi.y & 0xFFu;
-      let l0 = (lo.x >> 24u) & 0xFFu;
-      let l1 = (lo.x >> 16u) & 0xFFu;
-      let l2 = (lo.x >> 8u) & 0xFFu;
-      let l3 = lo.x & 0xFFu;
-      let l4 = lo.y & 0xFFu;
+      let hi = digit5_lut[q];
       w10 = hi.x;
-      w11 = (h4 << 24u) | (l0 << 16u) | (l1 << 8u) | l2;
-      w12 = (l3 << 24u) | (l4 << 16u) | 0x00008000u;
+      w11 = ((hi.y & 0xFFu) << 24u) | ((lo.x >> 8u) & 0x00FFFFFFu);
+      w12 = ((lo.x & 0xFFu) << 24u) | ((lo.y & 0xFFu) << 16u) | 0x00008000u;
     }
   }
 
+  {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;}
 
-  var w: array<u32, 16>;
-  w[0]=w0; w[1]=w1; w[2]=w2; w[3]=w3; w[4]=w4; w[5]=w5; w[6]=w6; w[7]=w7;
-  w[8]=w8; w[9]=w9; w[10]=w10; w[11]=w11; w[12]=w12; w[13]=w13; w[14]=w14; w[15]=w15;
+  a += 0x67452301u; b += 0xEFCDAB89u; c += 0x98BADCFEu;
+  d += 0x10325476u; e += 0xC3D2E1F0u;
 
-  // Short region loops reduce register pressure versus 70 fully unrolled rounds.
-  for (var i = 10u; i < 16u; i++) {
-    let idx = i & 15u;
-    let temp = rotl(a, 5u) + (d ^ (b & (c ^ d))) + e + 0x5A827999u + w[idx];
-    e=d; d=c; c=rotl(b,30u); b=a; a=temp;
-  }
-  for (var i = 16u; i < 20u; i++) {
-    let idx = i & 15u;
-    w[idx] = rotl(w[(i - 3u) & 15u] ^ w[(i - 8u) & 15u] ^ w[(i - 14u) & 15u] ^ w[(i - 16u) & 15u], 1u);
-    let temp = rotl(a, 5u) + (d ^ (b & (c ^ d))) + e + 0x5A827999u + w[idx];
-    e=d; d=c; c=rotl(b,30u); b=a; a=temp;
-  }
-  for (var i = 20u; i < 40u; i++) {
-    let idx = i & 15u;
-    w[idx] = rotl(w[(i - 3u) & 15u] ^ w[(i - 8u) & 15u] ^ w[(i - 14u) & 15u] ^ w[(i - 16u) & 15u], 1u);
-    let temp = rotl(a, 5u) + (b ^ c ^ d) + e + 0x6ED9EBA1u + w[idx];
-    e=d; d=c; c=rotl(b,30u); b=a; a=temp;
-  }
-  for (var i = 40u; i < 60u; i++) {
-    let idx = i & 15u;
-    w[idx] = rotl(w[(i - 3u) & 15u] ^ w[(i - 8u) & 15u] ^ w[(i - 14u) & 15u] ^ w[(i - 16u) & 15u], 1u);
-    let temp = rotl(a, 5u) + ((b & c) | (b & d) | (c & d)) + e + 0x8F1BBCDCu + w[idx];
-    e=d; d=c; c=rotl(b,30u); b=a; a=temp;
-  }
-  for (var i = 60u; i < 80u; i++) {
-    let idx = i & 15u;
-    w[idx] = rotl(w[(i - 3u) & 15u] ^ w[(i - 8u) & 15u] ^ w[(i - 14u) & 15u] ^ w[(i - 16u) & 15u], 1u);
-    let temp = rotl(a, 5u) + (b ^ c ^ d) + e + 0xCA62C1D6u + w[idx];
-    e=d; d=c; c=rotl(b,30u); b=a; a=temp;
-  }
-  a += 0x67452301u; b += 0xEFCDAB89u; c += 0x98BADCFEu; d += 0x10325476u; e += 0xC3D2E1F0u;
-  if (a == params.target0 && b == params.target1 && c == params.target2 && d == params.target3 && e == params.target4) {
+  if (a == params.target0 && b == params.target1 && c == params.target2 &&
+      d == params.target3 && e == params.target4) {
     atomicMin(&result, params.start_nonce + id);
   }
 }

@@ -9,7 +9,7 @@ let pool: PoolManager
 let log: WorkerLog
 const mod = "gpu"
 
-const WORKGROUP_SIZE = 128
+const WORKGROUP_SIZE = 256
 // 262,144 nonces * 16 bytes = 4 MiB. This is large enough to amortize
 // dispatch/readback overhead while keeping host-side preprocessing bounded.
 const BATCH = 1 << 22
@@ -98,11 +98,19 @@ function targetWords(target: Uint8Array): Uint32Array {
   return words
 }
 
-function makeDigitLut5(): Uint32Array {
-  // 100000 entries * 8 bytes = 800 KiB.
-  // Each entry stores five ASCII digits as:
-  //   [0..3] in word 0, [4] in low byte of word 1.
-  const lut = new Uint32Array(100000 * 2)
+function makeDigitLuts(): { digit4: Uint32Array; digit5: Uint32Array } {
+  // 4-digit table: 10,000 entries * 4 bytes = 40 KiB.
+  const digit4 = new Uint32Array(10000)
+  for (let i = 0; i < 10000; i++) {
+    const d0 = 48 + Math.floor(i / 1000)
+    const d1 = 48 + Math.floor(i / 100) % 10
+    const d2 = 48 + Math.floor(i / 10) % 10
+    const d3 = 48 + i % 10
+    digit4[i] = (d0 << 24) | (d1 << 16) | (d2 << 8) | d3
+  }
+
+  // 5-digit table: 100,000 entries * 8 bytes = 800 KiB.
+  const digit5 = new Uint32Array(100000 * 2)
   for (let i = 0; i < 100000; i++) {
     const d0 = 48 + Math.floor(i / 10000)
     const d1 = 48 + Math.floor(i / 1000) % 10
@@ -110,10 +118,10 @@ function makeDigitLut5(): Uint32Array {
     const d3 = 48 + Math.floor(i / 10) % 10
     const d4 = 48 + i % 10
     const p = i * 2
-    lut[p] = (d0 << 24) | (d1 << 16) | (d2 << 8) | d3
-    lut[p + 1] = d4
+    digit5[p] = (d0 << 24) | (d1 << 16) | (d2 << 8) | d3
+    digit5[p + 1] = d4
   }
-  return lut
+  return { digit4, digit5 }
 }
 
 function decimalDigits(n: number): number {
@@ -247,6 +255,7 @@ const start = async () => {
       { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: "uniform" } },
       { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: "storage" } },
       { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
+      { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: "read-only-storage" } },
     ],
   })
 
@@ -285,12 +294,17 @@ const start = async () => {
     size: 4,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
   }))
-  const digitLut = makeDigitLut5()
-  const digitLutBuffer = device.createBuffer({
-    size: digitLut.byteLength,
+  const { digit4, digit5 } = makeDigitLuts()
+  const digit4Buffer = device.createBuffer({
+    size: digit4.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   })
-  device.queue.writeBuffer(digitLutBuffer, 0, digitLut)
+  const digit5Buffer = device.createBuffer({
+    size: digit5.byteLength,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  })
+  device.queue.writeBuffer(digit4Buffer, 0, digit4)
+  device.queue.writeBuffer(digit5Buffer, 0, digit5)
 
   const params = Array.from({ length: IN_FLIGHT }, () => new Uint32Array(8))
   const reads = Array.from({ length: IN_FLIGHT }, () => new Uint32Array(1))
@@ -302,7 +316,8 @@ const start = async () => {
         { binding: 0, resource: { buffer: fixedBuffer } },
         { binding: 1, resource: { buffer: paramsBuffers[slot] } },
         { binding: 2, resource: { buffer: resultBuffers[slot] } },
-        { binding: 3, resource: { buffer: digitLutBuffer } },
+        { binding: 3, resource: { buffer: digit5Buffer } },
+        { binding: 4, resource: { buffer: digit4Buffer } },
       ],
     }),
   )
