@@ -219,10 +219,23 @@ const start = async () => {
     ],
   })
 
-  const pipeline = device.createComputePipeline({
-    layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
-    compute: { module: shaderModule, entryPoint: "main" },
-  })
+  const pipelineLayout = device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] })
+  const pipelines = new Map<number, GPUComputePipeline>()
+  const getPipeline = (digits: number): GPUComputePipeline => {
+    let pipeline = pipelines.get(digits)
+    if (!pipeline) {
+      pipeline = device.createComputePipeline({
+        layout: pipelineLayout,
+        compute: {
+          module: shaderModule,
+          entryPoint: "main",
+          constants: { NONCE_DIGITS: digits },
+        },
+      })
+      pipelines.set(digits, pipeline)
+    }
+    return pipeline
+  }
 
   // Persistent allocations: no per-batch GPUBuffer/bind-group churn.
   const fixedBuffer = device.createBuffer({
@@ -305,12 +318,11 @@ const start = async () => {
       params[0] = nonceStart
       params[1] = nonceCount
       params.set(targetWords(target), 2)
-      params[7] = nonceDigits
       device.queue.writeBuffer(paramsBuffer, 0, params)
 
       found = await findNonce(
         device,
-        pipeline,
+        getPipeline(nonceDigits),
         bindGroup,
         resultBuffer,
         readBuffer,
