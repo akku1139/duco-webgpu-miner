@@ -74,7 +74,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   // replaces the multiple decimal divisions used previously.
   if (NONCE_DIGITS <= 5u) {
     let x = digit_lut[nonce];
-    let a0 = (x.x >> 24u) & 0xFFu;
     let a1 = (x.x >> 16u) & 0xFFu;
     let a2 = (x.x >> 8u) & 0xFFu;
     let a3 = x.x & 0xFFu;
@@ -94,56 +93,38 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       w10 = (a4 << 24u) | 0x00800000u;
     }
   } else {
-    // One constant division by 100000. The remainder is always 0..99999,
-    // so both halves can use the same five-digit LUT.
     let q = nonce / 100000u;
     let r = nonce - q * 100000u;
     let hi = digit_lut[q];
     let lo = digit_lut[r];
 
+    let h0 = (hi.x >> 24u) & 0xFFu;
+    let h1 = (hi.x >> 16u) & 0xFFu;
+    let h2 = (hi.x >> 8u) & 0xFFu;
+    let h3 = hi.x & 0xFFu;
+    let h4 = hi.y & 0xFFu;
+    let l0 = (lo.x >> 24u) & 0xFFu;
+    let l1 = (lo.x >> 16u) & 0xFFu;
+    let l2 = (lo.x >> 8u) & 0xFFu;
+    let l3 = lo.x & 0xFFu;
+    let l4 = lo.y & 0xFFu;
+
     if (NONCE_DIGITS == 6u) {
-      // q: 1 digit, r: 5 digits
-      w10 = ((0x30u + q) << 24u) | (lo.x >> 8u);
-      w11 = ((lo.x & 0x000000FFu) << 24u) |
-            ((lo.y & 0xFFu) << 16u) |
-            0x00008000u;
+      w10 = (h4 << 24u) | (l0 << 16u) | (l1 << 8u) | l2;
+      w11 = (l3 << 24u) | (l4 << 16u) | 0x00008000u;
     } else if (NONCE_DIGITS == 7u) {
-      // q: 2 digits, r: 5 digits
-      let q0 = q / 10u;
-      let q1 = q - q0 * 10u;
-      w10 = ((0x30u + q0) << 24u) |
-            ((0x30u + q1) << 16u) |
-            ((lo.x & 0xFFFF0000u) >> 16u);
-      w11 = ((lo.x & 0x0000FFFFu) << 16u) |
-            ((lo.y & 0xFFu) << 8u) |
-            0x80u;
+      w10 = (h3 << 24u) | (h4 << 16u) | (l0 << 8u) | l1;
+      w11 = (l2 << 24u) | (l3 << 16u) | (l4 << 8u) | 0x80u;
     } else if (NONCE_DIGITS == 8u) {
-      // q: 3 digits, r: 5 digits
-      let q0 = q / 100u;
-      let qr = q - q0 * 100u;
-      let q1 = qr / 10u;
-      let q2 = qr - q1 * 10u;
-      w10 = ((0x30u + q0) << 24u) |
-            ((0x30u + q1) << 16u) |
-            ((0x30u + q2) << 8u) |
-            ((lo.x >> 24u) & 0xFFu);
-      w11 = ((lo.x & 0x00FFFFFFu) << 8u) |
-            (lo.y & 0xFFu);
+      w10 = (h2 << 24u) | (h3 << 16u) | (h4 << 8u) | l0;
+      w11 = (l1 << 24u) | (l2 << 16u) | (l3 << 8u) | l4;
       w12 = 0x80000000u;
     } else if (NONCE_DIGITS == 9u) {
-      // q: 4 digits, r: 5 digits
-      w10 = ((hi.x & 0x00FFFFFFu) << 8u) | (hi.y & 0xFFu);
+      w10 = (h1 << 24u) | (h2 << 16u) | (h3 << 8u) | h4;
       w11 = lo.x;
-      w12 = ((lo.y & 0xFFu) << 24u) | 0x00800000u;
+      w12 = (l4 << 24u) | 0x00800000u;
     } else {
-      // q: 5 digits, r: 5 digits
-      let h4 = hi.y & 0xFFu;
-      let l0 = (lo.x >> 24u) & 0xFFu;
-      let l1 = (lo.x >> 16u) & 0xFFu;
-      let l2 = (lo.x >> 8u) & 0xFFu;
-      let l3 = lo.x & 0xFFu;
-      let l4 = lo.y & 0xFFu;
-      w10 = hi.x;
+      w10 = (h0 << 24u) | (h1 << 16u) | (h2 << 8u) | h3;
       w11 = (h4 << 24u) | (l0 << 16u) | (l1 << 8u) | l2;
       w12 = (l3 << 24u) | (l4 << 16u) | 0x00008000u;
     }
