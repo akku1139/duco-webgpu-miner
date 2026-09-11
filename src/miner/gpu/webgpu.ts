@@ -12,7 +12,7 @@ const mod = "gpu"
 const WORKGROUP_SIZE = 256
 // 262,144 nonces * 16 bytes = 4 MiB. This is large enough to amortize
 // dispatch/readback overhead while keeping host-side preprocessing bounded.
-const BATCH = 1 << 18
+const BATCH = 1 << 20
 const NOT_FOUND = 0xFFFFFFFF
 
 const SHA1_H0 = 0x67452301
@@ -96,28 +96,46 @@ function targetWords(target: Uint8Array): Uint32Array {
   return words
 }
 
-// Host-side pre-encoding removes decimal division/modulo and digit-counting
-// from every GPU invocation. Four u32 values encode the nonce's message tail:
-// W10, W11, W12 and W15. W13/W14 are zero for this message layout.
-function encodeNonceBuffer(out: Uint32Array, start: number, count: number): void {
-  const bytes = new Uint8Array(12)
-  for (let i = 0; i < count; i++) {
-    const nonce = start + i
-    const s = String(nonce)
-    if (s.length > 10) {
-      throw new Error(`nonce ${nonce} is too large for the pre-encoded path`)
-    }
-
-    bytes.fill(0)
-    for (let j = 0; j < s.length; j++) bytes[j] = s.charCodeAt(j)
-    bytes[s.length] = 0x80
-
-    const base = i * 4
-    out[base] = u32be(bytes, 0)
-    out[base + 1] = u32be(bytes, 4)
-    out[base + 2] = u32be(bytes, 8)
-    out[base + 3] = (40 + s.length) * 8
+function makeDigitLut(): Uint32Array {
+  const lut = new Uint32Array(10000)
+  for (let i = 0; i < 10000; i++) {
+    const d0 = 48 + Math.floor(i / 1000)
+    const d1 = 48 + Math.floor(i / 100) % 10
+    const d2 = 48 + Math.floor(i / 10) % 10
+    const d3 = 48 + i % 10
+    lut[i] =
+      (d0 << 24) |
+      (d1 << 16) |
+      (d2 << 8) |
+      d3
   }
+  return lut
+}
+
+function decimalDigits(n: number): number {
+  if (n < 10) return 1
+  if (n < 100) return 2
+  if (n < 1000) return 3
+  if (n < 10000) return 4
+  if (n < 100000) return 5
+  if (n < 1000000) return 6
+  if (n < 10000000) return 7
+  if (n < 100000000) return 8
+  if (n < 1000000000) return 9
+  return 10
+}
+
+function nextDigitBoundary(n: number): number {
+  if (n < 10) return 10
+  if (n < 100) return 100
+  if (n < 1000) return 1000
+  if (n < 10000) return 10000
+  if (n < 100000) return 100000
+  if (n < 1000000) return 1000000
+  if (n < 10000000) return 10000000
+  if (n < 100000000) return 100000000
+  if (n < 1000000000) return 1000000000
+  return 0xFFFFFFFF
 }
 
 async function findNonce(
@@ -223,12 +241,13 @@ const start = async () => {
     size: 4,
     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
   })
-  const nonceBuffer = device.createBuffer({
-    size: BATCH * 16,
+  const digitLut = makeDigitLut()
+  const digitLutBuffer = device.createBuffer({
+    size: digitLut.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   })
+  device.queue.writeBuffer(digitLutBuffer, 0, digitLut)
 
-  const nonceData = new Uint32Array(BATCH * 4)
   const params = new Uint32Array(8)
   const read = new Uint32Array(1)
   const encoder = new TextEncoder()
@@ -239,7 +258,7 @@ const start = async () => {
       { binding: 0, resource: { buffer: fixedBuffer } },
       { binding: 1, resource: { buffer: paramsBuffer } },
       { binding: 2, resource: { buffer: resultBuffer } },
-      { binding: 3, resource: { buffer: nonceBuffer } },
+      { binding: 3, resource: { buffer: digitLutBuffer } },
     ],
   })
 
@@ -272,14 +291,21 @@ const start = async () => {
     let found = NOT_FOUND
     log.emit(mod, `job diff ${job.diff} (${maxNonce} nonces)`)
 
-    for (let nonceStart = 0; nonceStart < maxNonce && found === NOT_FOUND; nonceStart += BATCH) {
-      const nonceCount = Math.min(BATCH, maxNonce - nonceStart)
-      encodeNonceBuffer(nonceData, nonceStart, nonceCount)
-      device.queue.writeBuffer(nonceBuffer, 0, nonceData, 0, nonceCount * 4)
+    for (let nonceStart = 0; nonceStart < maxNonce && found === NOT_FOUND; ) {
+      // Every dispatch stays inside one decimal digit range, so the shader's
+      // nonce encoding path is uniform. No per-nonce CPU preprocessing occurs.
+      const boundary = nextDigitBoundary(nonceStart)
+      const nonceDigits = decimalDigits(nonceStart)
+      const nonceCount = Math.min(
+        BATCH,
+        maxNonce - nonceStart,
+        boundary - nonceStart,
+      )
 
       params[0] = nonceStart
       params[1] = nonceCount
       params.set(targetWords(target), 2)
+      params[7] = nonceDigits
       device.queue.writeBuffer(paramsBuffer, 0, params)
 
       found = await findNonce(
@@ -292,7 +318,10 @@ const start = async () => {
         nonceCount,
       )
 
-      if (found === NOT_FOUND) continue
+      if (found === NOT_FOUND) {
+        nonceStart += nonceCount
+        continue
+      }
 
       // Never submit an unverified GPU result.
       const digestInput = encoder.encode(job.last + found.toString())
@@ -315,6 +344,7 @@ const start = async () => {
           `Debug: hash=${Array.from(hash).map((b) => b.toString(16).padStart(2, "0")).join("")}, target=${job.target}`,
         )
         found = NOT_FOUND
+        nonceStart += nonceCount
         continue
       }
 
@@ -322,6 +352,7 @@ const start = async () => {
       log.emit(mod, `Sending share: nonce=${found}, job.last=${job.last}, target=${job.target}`)
       const shareResult = await pool.sendShare(found)
       log.emit(mod, `Share result: ${shareResult.result} ${shareResult.msg}`)
+      nonceStart += nonceCount
     }
 
     if (found === NOT_FOUND) {

@@ -1,13 +1,12 @@
 // Duino-Coin SHA-1 WebGPU fast path.
 // Fixed 40-byte prefix is precomputed through SHA-1 round 9 on the CPU.
-// Nonce bytes/padding are pre-encoded by the host into nonce_words.
+// Nonce bytes/padding are generated on-GPU from a small decimal lookup table.
 // One invocation handles one nonce. This preserves the original exact-match
-// target semantics while removing nonce decimal division/modulo and dynamic
-// SHA-1 round/W-schedule indexing from the shader.
+// target semantics while keeping the host out of the per-nonce hot path.
 //
 // fixed[0..4]  = state after rounds 0..9 for last[0..39]
 // fixed[5..14] = big-endian W[0..9] for the fixed last hash string
-// nonce_words = 4 u32 per nonce: W10,W11,W12,message-bit-length in W15.
+// digit_lut[x] = ASCII "xxxx" packed big-endian for 0..9999.
 
 struct Params {
   start_nonce: u32,
@@ -17,12 +16,13 @@ struct Params {
   target2: u32,
   target3: u32,
   target4: u32,
+  nonce_digits: u32,
 };
 
 @group(0) @binding(0) var<storage, read> fixed: array<u32, 15>;
 @group(0) @binding(1) var<uniform> params: Params;
 @group(0) @binding(2) var<storage, read_write> result: atomic<u32>;
-@group(0) @binding(3) var<storage, read> nonce_words: array<u32>;
+@group(0) @binding(3) var<storage, read> digit_lut: array<u32, 10000>;
 
 fn rotl(x: u32, n: u32) -> u32 {
   return (x << n) | (x >> (32u - n));
@@ -32,14 +32,59 @@ fn rotl(x: u32, n: u32) -> u32 {
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let id = gid.x;
   if (id >= params.num_nonces) { return; }
-  let p = id * 4u;
+  let nonce = params.start_nonce + id;
 
   var w0 = fixed[5]; var w1 = fixed[6]; var w2 = fixed[7]; var w3 = fixed[8];
   var w4 = fixed[9]; var w5 = fixed[10]; var w6 = fixed[11]; var w7 = fixed[12];
   var w8 = fixed[13]; var w9 = fixed[14];
-  var w10 = nonce_words[p]; var w11 = nonce_words[p + 1u];
-  var w12 = nonce_words[p + 2u]; var w13 = 0u;
-  var w14 = 0u; var w15 = nonce_words[p + 3u];
+
+  // nonce_digits is uniform for the dispatch. Build only the message tail;
+  // the 10,000-entry LUT turns a decimal 0..9999 chunk into packed ASCII.
+  var w10 = 0u; var w11 = 0u; var w12 = 0u; var w13 = 0u; var w14 = 0u;
+  var w15 = (40u + params.nonce_digits) << 3u;
+
+  if (params.nonce_digits == 1u) {
+    let x = digit_lut[nonce];
+    w10 = ((x & 0x000000FFu) << 24u) | 0x00800000u;
+  } else if (params.nonce_digits == 2u) {
+    let x = digit_lut[nonce];
+    w10 = ((x & 0x0000FFFFu) << 16u) | 0x00008000u;
+  } else if (params.nonce_digits == 3u) {
+    let x = digit_lut[nonce];
+    w10 = ((x & 0x00FFFFFFu) << 8u) | 0x00000080u;
+  } else if (params.nonce_digits == 4u) {
+    w10 = digit_lut[nonce];
+    w11 = 0x80000000u;
+  } else if (params.nonce_digits == 5u) {
+    let q = nonce / 10u; let r = nonce - q * 10u;
+    w10 = digit_lut[q];
+    w11 = ((0x30u + r) << 24u) | 0x00800000u;
+  } else if (params.nonce_digits == 6u) {
+    let q = nonce / 100u; let r = nonce - q * 100u;
+    w10 = digit_lut[q];
+    w11 = ((digit_lut[r] & 0x0000FFFFu) << 16u) | 0x00008000u;
+  } else if (params.nonce_digits == 7u) {
+    let q = nonce / 1000u; let r = nonce - q * 1000u;
+    w10 = digit_lut[q];
+    w11 = ((digit_lut[r] & 0x00FFFFFFu) << 8u) | 0x00000080u;
+  } else if (params.nonce_digits == 8u) {
+    let q = nonce / 10000u; let r = nonce - q * 10000u;
+    w10 = digit_lut[q];
+    w11 = digit_lut[r];
+    w12 = 0x80000000u;
+  } else if (params.nonce_digits == 9u) {
+    let q = nonce / 100000u; let r = nonce - q * 100000u;
+    let q2 = r / 10u; let r2 = r - q2 * 10u;
+    w10 = digit_lut[q];
+    w11 = digit_lut[q2];
+    w12 = ((0x30u + r2) << 24u) | 0x00800000u;
+  } else {
+    let q = nonce / 1000000u; let r = nonce - q * 1000000u;
+    let q2 = r / 100u; let r2 = r - q2 * 100u;
+    w10 = digit_lut[q];
+    w11 = digit_lut[q2];
+    w12 = ((digit_lut[r2] & 0x0000FFFFu) << 16u) | 0x00008000u;
+  }
 
   var a = fixed[0]; var b = fixed[1]; var c = fixed[2];
   var d = fixed[3]; var e = fixed[4];
