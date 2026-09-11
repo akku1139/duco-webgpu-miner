@@ -59,13 +59,6 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   var w8 = fixed.v3.y;
   var w9 = fixed.v3.z;
 
-  var w10 = 0u;
-  var w11 = 0u;
-  var w12 = 0u;
-  var w13 = 0u;
-  var w14 = 0u;
-  var w15 = (40u + NONCE_DIGITS) << 3u;
-
   // v7 decimal packing:
   // - 1..4 digits: one 4-digit packed LUT entry
   // - 5 digits: one 5-digit LUT entry
