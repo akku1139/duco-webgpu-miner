@@ -1,7 +1,13 @@
-// Duino-Coin SHA-1 compute shader (simple and correct)
+// Duino-Coin SHA-1 WebGPU fast path.
+// Fixed 40-byte prefix is precomputed through SHA-1 round 9 on the CPU.
+// Nonce bytes/padding are pre-encoded by the host into nonce_words.
+// One invocation handles one nonce. This preserves the original exact-match
+// target semantics while removing nonce decimal division/modulo and dynamic
+// SHA-1 round/W-schedule indexing from the shader.
 //
-// Each invocation searches one nonce.
-// Uses simple digit encoding loop.
+// fixed[0..4]  = state after rounds 0..9 for last[0..39]
+// fixed[5..14] = big-endian W[0..9] for the fixed last hash string
+// nonce_words = 4 u32 per nonce: W10,W11,W12,message-bit-length in W15.
 
 struct Params {
   start_nonce: u32,
@@ -13,111 +19,38 @@ struct Params {
   target4: u32,
 };
 
-@group(0) @binding(0) var<storage, read> last: array<u32, 10>;
+@group(0) @binding(0) var<storage, read> fixed: array<u32, 15>;
 @group(0) @binding(1) var<uniform> params: Params;
 @group(0) @binding(2) var<storage, read_write> result: atomic<u32>;
+@group(0) @binding(3) var<storage, read> nonce_words: array<u32>;
 
 fn rotl(x: u32, n: u32) -> u32 {
   return (x << n) | (x >> (32u - n));
 }
 
-// Simple nonce encoding: write decimal digits at offset 40
-fn encode_nonce(w: ptr<function, array<u32, 16>>, nonce: u32) {
-  // Count digits (simple loop)
-  var digit_count = 1u;
-  var temp = nonce;
-  while (temp >= 10u) {
-    temp = temp / 10u;
-    digit_count = digit_count + 1u;
-  }
-  
-  // Write digits from least significant to most significant, then reverse
-  // Actually, let's write most significant first directly
-  var n = nonce;
-  var pow10 = 1u;
-  var i = 0u;
-  
-  // Find the power of 10 for the most significant digit
-  while (i < digit_count - 1u) {
-    pow10 = pow10 * 10u;
-    i = i + 1u;
-  }
-  
-  // Write digits
-  var j = 0u;
-  while (j < digit_count) {
-    let digit = n / pow10;
-    n = n % pow10;
-    
-    let widx = 10u + (j >> 2u);
-    let shift = 24u - 8u * (j & 3u);
-    (*w)[widx] = ((*w)[widx] & ~(0xFFu << shift)) | ((0x30u + digit) << shift);
-    
-    pow10 = pow10 / 10u;
-    j = j + 1u;
-  }
-  
-  // Padding and length
-  let msg_len = 40u + digit_count;
-  let pad_widx = msg_len >> 2u;
-  let pad_shift = 24u - 8u * (msg_len & 3u);
-  (*w)[pad_widx] = ((*w)[pad_widx] & ~(0xFFu << pad_shift)) | (0x80u << pad_shift);
-  (*w)[14] = 0u;
-  (*w)[15] = msg_len << 3u;
-}
-
 @compute @workgroup_size(256)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
   let id = gid.x;
-  if (id >= params.num_nonces) {
-    return;
-  }
-  let nonce = params.start_nonce + id;
+  if (id >= params.num_nonces) { return; }
+  let p = id * 4u;
 
-  // Build SHA-1 block
-  var w: array<u32, 16>;
-  
-  // Load last hash (big-endian u32 words)
-  for (var i = 0u; i < 10u; i++) {
-    w[i] = last[i];
-  }
-  w[10] = 0u; w[11] = 0u; w[12] = 0u; w[13] = 0u;
-  w[14] = 0u; w[15] = 0u;
+  var w0 = fixed[5]; var w1 = fixed[6]; var w2 = fixed[7]; var w3 = fixed[8];
+  var w4 = fixed[9]; var w5 = fixed[10]; var w6 = fixed[11]; var w7 = fixed[12];
+  var w8 = fixed[13]; var w9 = fixed[14];
+  var w10 = nonce_words[p]; var w11 = nonce_words[p + 1u];
+  var w12 = nonce_words[p + 2u]; var w13 = 0u;
+  var w14 = 0u; var w15 = nonce_words[p + 3u];
 
-  // Encode nonce
-  encode_nonce(&w, nonce);
+  var a = fixed[0]; var b = fixed[1]; var c = fixed[2];
+  var d = fixed[3]; var e = fixed[4];
 
-  // SHA-1 compression
-  var h0 = 0x67452301u;
-  var h1 = 0xEFCDAB89u;
-  var h2 = 0x98BADCFEu;
-  var h3 = 0x10325476u;
-  var h4 = 0xC3D2E1F0u;
+  {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+(d^(b&(c^d)))+e+0x5A827999u+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+(b^c^d)+e+0x6ED9EBA1u+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+((b&c)|(b&d)|(c&d))+e+0x8F1BBCDCu+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w0=rotl(w13^w8^w2^w0,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w0;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w1=rotl(w14^w9^w3^w1,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w1;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w2=rotl(w15^w10^w4^w2,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w2;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w3=rotl(w0^w11^w5^w3,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w3;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w4=rotl(w1^w12^w6^w4,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w4;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w5=rotl(w2^w13^w7^w5,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w5;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w6=rotl(w3^w14^w8^w6,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w6;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w7=rotl(w4^w15^w9^w7,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w7;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w8=rotl(w5^w0^w10^w8,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w8;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w9=rotl(w6^w1^w11^w9,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w9;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w10=rotl(w7^w2^w12^w10,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w10;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w11=rotl(w8^w3^w13^w11,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w11;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w12=rotl(w9^w4^w14^w12,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w12;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w13=rotl(w10^w5^w15^w13,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w13;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w14=rotl(w11^w6^w0^w14,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w14;e=d;d=c;c=rotl(b,30u);b=a;a=q;} w15=rotl(w12^w7^w1^w15,1u); {let q=rotl(a,5u)+(b^c^d)+e+0xCA62C1D6u+w15;e=d;d=c;c=rotl(b,30u);b=a;a=q;}
 
-  var a = h0; var b = h1; var c = h2; var d = h3; var e = h4;
+  a += 0x67452301u; b += 0xEFCDAB89u; c += 0x98BADCFEu;
+  d += 0x10325476u; e += 0xC3D2E1F0u;
 
-  for (var i = 0u; i < 80u; i++) {
-    if (i >= 16u) {
-      w[i & 15u] = rotl(w[(i - 3u) & 15u] ^ w[(i - 8u) & 15u] ^ w[(i - 14u) & 15u] ^ w[(i - 16u) & 15u], 1u);
-    }
-    var f: u32; var k: u32;
-    if (i <= 19u) {
-      f = (b & c) | ((~b) & d); k = 0x5A827999u;
-    } else if (i <= 39u) {
-      f = b ^ c ^ d; k = 0x6ED9EBA1u;
-    } else if (i <= 59u) {
-      f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDCu;
-    } else {
-      f = b ^ c ^ d; k = 0xCA62C1D6u;
-    }
-    let temp = rotl(a, 5u) + f + e + k + w[i & 15u];
-    e = d; d = c; c = rotl(b, 30u); b = a; a = temp;
-  }
-
-  h0 += a; h1 += b; h2 += c; h3 += d; h4 += e;
-
-  if (h0 == params.target0 && h1 == params.target1 && 
-      h2 == params.target2 && h3 == params.target3 && h4 == params.target4) {
-    atomicMin(&result, nonce);
+  if (a == params.target0 && b == params.target1 && c == params.target2 &&
+      d == params.target3 && e == params.target4) {
+    atomicMin(&result, params.start_nonce + id);
   }
 }
