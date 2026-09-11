@@ -87,16 +87,16 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
       w10 = x;
       w11 = 0x80000000u;
     } else if (NONCE_DIGITS == 3u) {
-      w10 = (x & 0x00FFFFFFu) << 8u | 0x00000080u;
+      w10 = ((x & 0x00FFFFFFu) << 8u) | 0x00000080u;
     } else if (NONCE_DIGITS == 2u) {
-      w10 = (x & 0x0000FFFFu) << 16u | 0x00008000u;
+      w10 = ((x & 0x0000FFFFu) << 16u) | 0x00008000u;
     } else {
-      w10 = (x & 0x000000FFu) << 24u | 0x00800000u;
+      w10 = ((x & 0x000000FFu) << 24u) | 0x00800000u;
     }
   } else if (NONCE_DIGITS == 5u) {
     let x = digit5_lut[nonce];
     w10 = x.x;
-    w11 = (x.y & 0xFFu) << 24u | 0x00800000u;
+    w11 = ((x.y & 0xFFu) << 24u) | 0x00800000u;
   } else {
     let q = nonce / 100000u;
     let r = nonce - q * 100000u;
