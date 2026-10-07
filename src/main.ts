@@ -18,6 +18,7 @@ const main = async () => {
     rigID: params.get("rigid") ?? "Duino-Coin WebGPU Miner",
     noWS: Boolean(params.get("nows") ?? false),
     baseDiff: (params.get("basediff") ?? "LOW") as Config["baseDiff"],
+    gpuLanes: Number(params.get("gpu-lanes") ?? 2),
   }
 
   log.welcome("CPU", Boolean(params.get("cpu"))
