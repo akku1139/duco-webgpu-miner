@@ -270,9 +270,10 @@ export class GpuLane {
 
   /**
    * Returns the smallest nonce in [startNonce, maxNonce) whose SHA-1 of
-   * `last + nonce` equals `target`, or NOT_FOUND. The result is not verified.
+   * `last + nonce` equals `target`, or NOT_FOUND, plus the number of nonces
+   * the GPU covered. The result is not verified.
    */
-  async search(last: string, target: Uint8Array, maxNonce: number, startNonce = 0): Promise<number> {
+  async search(last: string, target: Uint8Array, maxNonce: number, startNonce = 0): Promise<{ nonce: number, searched: number }> {
     const lastBytes = textEncoder.encode(last)
     if (lastBytes.length !== 40) {
       throw new Error(`last hash must encode to exactly 40 bytes, got ${lastBytes.length}`)
@@ -283,6 +284,7 @@ export class GpuLane {
     const pending: Promise<number>[] = []
     let next = 0
     let found = NOT_FOUND
+    let searched = 0
     for (const group of groups(startNonce, maxNonce)) {
       if (pending.length === SLOTS) {
         found = await pending.shift()!
@@ -290,6 +292,7 @@ export class GpuLane {
       }
       pending.push(this.#submit(this.#slots[next], group))
       next = (next + 1) % SLOTS
+      for (const dispatch of group) searched += dispatch.count
     }
 
     // Groups are submitted in nonce order, so the first hit is the smallest.
@@ -298,6 +301,6 @@ export class GpuLane {
       const value = await result
       if (found === NOT_FOUND) found = value
     }
-    return found
+    return { nonce: found, searched }
   }
 }

@@ -1,5 +1,6 @@
 import { text } from "@/lib/text.ts"
-import { PoolManager } from "../pool.ts"
+import { addSIPrefix } from "@/lib/utils.ts"
+import { PoolManager, type Job } from "../pool.ts"
 import { WorkerLog } from "../workerLog.ts"
 import type { Config } from "@/lib/types.ts"
 import { GpuMiner, NOT_FOUND, type GpuLane } from "./engine.ts"
@@ -54,42 +55,100 @@ const start = async (c: Config) => {
   // Each lane is an independent pool connection. While one lane waits on the
   // network (job request, share submission), the others keep the GPU busy.
   const lanes = Math.max(1, Math.floor(c.gpuLanes))
-  log.emit(mod, `${lanes} lane(s)`)
+  log.emit(mod, `${lanes} lane(s), pipelined share submission ${c.gpuPipeline ? "on" : "off"}`)
   for (let i = 0; i < lanes; i++) {
     const thread = lanes === 1 ? "" : i.toString()
     PoolManager.new(log, mod, thread, c.username, c.rigID + " (GPU)", c.miningKey, c.noWS, c.baseDiff)
-      .then((pool) => runLane(pool, miner.createLane()))
+      .then((pool) => runLane(pool, miner.createLane(), c.gpuPipeline))
   }
+  setInterval(() => reportStats(lanes), STATS_INTERVAL_MS)
 }
 
-const runLane = async (pool: PoolManager, lane: GpuLane) => {
-  const thread = pool.thread
-  while (true) {
-    let job
-    try {
-      job = await pool.getJob()
-    } catch (error) {
-      log.emit(mod, text.color(`failed to get job: ${String(error)}`, "red"), thread)
-      continue
-    }
+const STATS_INTERVAL_MS = 30_000
+const RETRY_DELAY_MS = 5_000
+const SLOW_EXCHANGE_MS = 15_000
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Aggregated over all lanes and reset on every report.
+const stats = { jobs: 0, searched: 0, gpuMs: 0, networkMs: 0, since: performance.now() }
+
+const reportStats = (lanes: number) => {
+  const now = performance.now()
+  const seconds = (now - stats.since) / 1000
+  if (stats.jobs > 0) {
+    log.emit(
+      mod,
+      `speed ${addSIPrefix(stats.searched / seconds, " ")}H/s, ${stats.jobs} jobs, ` +
+      `per job: gpu ${(stats.gpuMs / stats.jobs).toFixed(1)} ms, ` +
+      `network ${(stats.networkMs / stats.jobs).toFixed(1)} ms (${lanes} lanes)`,
+    )
+  }
+  Object.assign(stats, { jobs: 0, searched: 0, gpuMs: 0, networkMs: 0, since: now })
+}
+
+const runLane = async (pool: PoolManager, lane: GpuLane, pipeline: boolean) => {
+  const thread = pool.thread
+
+  // Returns the next job, submitting `share` first when there is one.
+  const exchange = async (share: number | null): Promise<Job> => {
+    const startedAt = performance.now()
+    const slow = setTimeout(() => {
+      log.emit(mod, text.color(
+        `no reply from pool for ${SLOW_EXCHANGE_MS / 1000}s` + (pipeline ? " (try gpu-pipeline=false)" : ""),
+        "yellow",
+      ), thread)
+    }, SLOW_EXCHANGE_MS)
+    try {
+      while (true) {
+        try {
+          if (share === null) return await pool.getJob()
+          if (pipeline) return await pool.sendShareAndGetJob(share)
+          await pool.sendShare(share)
+          share = null
+        } catch (error) {
+          log.emit(mod, text.color(`pool error: ${String(error)}`, "red"), thread)
+          share = null
+          await sleep(RETRY_DELAY_MS)
+        }
+      }
+    } finally {
+      clearTimeout(slow)
+      stats.networkMs += performance.now() - startedAt
+    }
+  }
+
+  let job = await exchange(null)
+  while (true) {
     const target = parseTarget(job.target)
     if (!target) {
-      log.emit(mod, text.color(`invalid target: ${job.target}`, "yellow"), thread)
+      if (job.last.includes("Too many workers")) {
+        log.emit(mod, text.color("pool refused this lane: Too many workers. lower gpu-lanes", "red"), thread)
+        return
+      }
+      log.emit(mod, text.color(`invalid job: ${job.last}`, "yellow"), thread)
+      await sleep(RETRY_DELAY_MS)
+      job = await exchange(null)
       continue
     }
 
     const maxNonce = Math.floor(job.diff * 100) + 1
+    const startedAt = performance.now()
     let found: number
     try {
-      found = await lane.search(job.last, target, maxNonce)
+      const result = await lane.search(job.last, target, maxNonce)
+      found = result.nonce
+      stats.searched += result.searched
     } catch (error) {
       log.emit(mod, text.color(String(error), "yellow"), thread)
+      job = await exchange(null)
       continue
     }
+    stats.gpuMs += performance.now() - startedAt
+    stats.jobs++
 
     if (found === NOT_FOUND) {
       log.emit(mod, text.color("no valid nonce found for this job", "yellow"), thread)
+      job = await exchange(null)
       continue
     }
 
@@ -105,9 +164,10 @@ const runLane = async (pool: PoolManager, lane: GpuLane) => {
         `Debug: hash=${Array.from(hash).map((b) => b.toString(16).padStart(2, "0")).join("")}, target=${job.target}`,
         thread,
       )
+      job = await exchange(null)
       continue
     }
 
-    await pool.sendShare(found)
+    job = await exchange(found)
   }
 }

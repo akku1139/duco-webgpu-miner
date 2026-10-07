@@ -16,7 +16,7 @@
         <summary>Select backend</summary>
         <p><label><input type="radio" name="gpu-backend" value="webgpu" checked> WebGPU</label></p>
       </details>
-      <p><label>Number of GPU lanes (parallel pool connections): <input type="number" name="gpu-lanes" value="2" min="1" step="1"></label></p>
+      <p><label>Number of GPU lanes (parallel pool connections): <input type="number" name="gpu-lanes" value="4" min="1" step="1"></label></p>
 
       <p><label>CPU: <input type="checkbox" name="cpu" value="true" checked></label></p>
       <p><label>Number of CPU threads: <input type="number" name="cpu-threads" value="1" min="1" step="1"></label></p>
@@ -38,6 +38,7 @@
       <details>
         <summary>Advanced settings</summary>
         <p><label>Don't use WebSocket: <input type="checkbox" name="nows" value="true"></label></p>
+        <p><label>Don't pipeline GPU share submission and next job request: <input type="checkbox" name="gpu-pipeline" value="false"></label></p>
       </details>
       <p><input type="submit" value="Start Mining!"></p>
       <p>* Required</p>
