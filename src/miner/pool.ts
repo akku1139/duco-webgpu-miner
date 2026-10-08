@@ -27,9 +27,6 @@ export class PoolManager {
 
   #startTime: number = 0
   #threadID: number
-  // WebSocket replies arrive in request order, so pending requests are
-  // resolved FIFO. This allows several requests to be in flight at once.
-  #pending: { resolve: (data: string) => void, reject: (err: Error) => void }[] = []
 
   #minerName = "Duino-Coin WebGPU Miner 0.0"
 
@@ -50,15 +47,6 @@ export class PoolManager {
     this.#baseDiff = baseDiff
 
     this.#threadID = Math.floor(Math.random() * 10000)
-
-    if (useWS) {
-      ws.onmessage = (event) => {
-        this.#pending.shift()?.resolve(event.data)
-      }
-      ws.onclose = () => {
-        for (const p of this.#pending.splice(0)) p.reject(new Error("WebSocket closed"))
-      }
-    }
 
     this.job = {
       last: "dummy",
@@ -127,12 +115,13 @@ export class PoolManager {
     return self
   }
 
-  #waitWS(msg: string): Promise<string> {
-    if (this.#ws.readyState !== WebSocket.OPEN) {
-      return Promise.reject(new Error(`WebSocket not open: readyState=${this.#ws.readyState}`))
-    }
-    return new Promise((resolve, reject) => {
-      this.#pending.push({ resolve, reject })
+  async #waitWS(msg: string): Promise<string> {
+    return new Promise((resolve) => {
+      const handler = (event: MessageEvent) => {
+        this.#ws.removeEventListener("message", handler)
+        resolve(event.data)
+      }
+      this.#ws.addEventListener("message", handler)
       this.#ws.send(msg)
     })
   }
@@ -160,7 +149,7 @@ export class PoolManager {
     */
     let res: string
     if (this.#useWS) {
-      res = await this.#waitWS(this.#jobRequest())
+      res = await this.#waitWS(`JOB,${this.username},${this.#baseDiff},${this.#miningKey}`)
     } else {
       const now = new Date()
       res = await (await this.#sendHTTP("get", "/legacy_job", {
@@ -170,14 +159,6 @@ export class PoolManager {
       })).text()
     }
 
-    return this.#setJob(res)
-  }
-
-  #jobRequest(): string {
-    return `JOB,${this.username},${this.#baseDiff},${this.#miningKey}`
-  }
-
-  #setJob(res: string): Job {
     this.#startTime = new Date().getTime()
 
     const data  = res.split(",")
@@ -187,22 +168,6 @@ export class PoolManager {
       diff: Number(data[2]),
     }
     return this.job
-  }
-
-  /**
-   * Submits a share and requests the next job without waiting for the share
-   * result in between, saving one network round trip per job.
-   * Falls back to two sequential requests without WebSocket.
-   */
-  async sendShareAndGetJob(nonce: number): Promise<Job> {
-    if (!this.#useWS) {
-      await this.sendShare(nonce)
-      return await this.getJob()
-    }
-    const share = this.sendShare(nonce)
-    const job = this.#waitWS(this.#jobRequest())
-    await share
-    return this.#setJob(await job)
   }
 
   async sendShare(nonce: number): Promise<Result> {
@@ -256,6 +221,9 @@ export class PoolManager {
     let feedback
     try {
     if (this.#useWS) {
+      if (this.#ws.readyState !== WebSocket.OPEN) {
+        this.log.emit(this.mod, `WebSocket not open: readyState=${this.#ws.readyState}`)
+      }
       feedback = await this.#waitWS(`${nonce},${hashrate},${this.#minerName},${this.rigid},,${this.#threadID}`)
     } else {
       feedback = await (await this.#sendHTTP("post", "/legacy_job", {

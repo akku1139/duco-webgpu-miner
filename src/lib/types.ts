@@ -6,8 +6,6 @@ export type Config = {
   rigID: string,
   noWS: boolean,
   baseDiff: "LOW" | "MEDIUM" | "NET" | "EXTREME",
-  gpuLanes: number,
-  gpuPipeline: boolean,
 }
 
 export type Result = {
